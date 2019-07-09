@@ -2,7 +2,7 @@
   "name": "dat-p2p-demo",
   "version": "1.0.0",
   "description": "",
-  "main": "hyper.html",
+  "main": "index.html",
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -17,6 +17,7 @@
     "signalhubws": "^1.0.10",
     "simple-peer": "^9.4.0",
     "utp-native": "^2.1.3",
+    "vue": "^2.6.10",
     "webrtc-swarm": "^2.9.0",
     "websocket": "^1.0.29",
     "wrtc": "^0.4.1"

@@ -1,9 +1,9 @@
-var signalhubws = require('signalhubws')
-var hypercore = require('hypercore')
+var signalhubws = require('signalhubws');
+var hypercore = require('hypercore');
 //var Discovery = require('hyperdiscovery')
 var discovery = require('discovery-swarm-web');
 
-var ram = require('random-access-memory')
+var ram = require('random-access-memory');
 
 
 
@@ -17,10 +17,12 @@ class Client {
 
     constructor() {
         this.storage = (fn) => { console.log(fn); return ram(); }
+        this.deferred = {init: deferred(), ready: deferred()};
     }
 
     init() {
-        return this._initPromise || (this._initPromise = this._init());
+        return this._initPromise || (this._initPromise = this._init()
+                                     .then(() => this.deferred.init.resolve()));
     }
 
     _init() {
@@ -40,8 +42,6 @@ class Client {
                 this.advertise.start(() => this.advertisedKey);
 
                 setTimeout(resolve, 1500);  // TODO wait for swarm?
-                if (!this.feed) {
-                }
             });
         });
     }
@@ -77,6 +77,7 @@ class Client {
         console.log("feed.ready");
 
         this.swarm.join(this.key, {wrtc});
+        this.deferred.ready.resolve();
 
         // from this point on the hub connection is kept-alive by the swarm
         this.advertise.stopAsking();
@@ -130,42 +131,23 @@ class Advertise {
     }
 }
 
+class Deferred {
+    constructor() {
+        this.promise = new Promise((resolve, reject) => {
+            this.resolve = resolve; this.reject = reject;
+        });
+    }
+    then(cb)  { return this.promise.then(cb); }
+    catch(cb) { return this.promise.catch(cb); }
+}
+
+function deferred() { return new Deferred(); }
+
+
 var c = new Client();
 
 
-function create(key) {
-    var storage = (fn) => { console.log(fn); return ram(); }
-    var feed = hypercore(storage, key);
-    //var discovery = Discovery(feed)
-
-    feed.on('ready', () => connect());
-    feed.on('error', e => console.log('feed error:', e));
-    feed.on('append', () => onAppend());
-
-    function connect() {
-//        return ;
-
-        var hub = swarm.hub;        
-        window.swarm = swarm;
-    }
-
-    Object.assign(window, {feed, ram});//, discovery});
-
-    return feed;
-}
-
-
-function pipe(feed1, feed2) {
-    var s1 = feed1.replicate({live: true}),
-        s2 = feed2.replicate({live: true});
-    s1.on('data', (d) => console.log('s1', d));
-    s2.on('data', (d) => console.log('s2', d));
-    s1.pipe(s2).pipe(s1);
-}
-
-
-
 if (typeof window !== 'undefined')
-    Object.assign(window, {c, pipe});
+    Object.assign(window, {c});
 else
     c.join();
