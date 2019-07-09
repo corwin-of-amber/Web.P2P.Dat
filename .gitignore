@@ -1,0 +1,4 @@
+*.bundle.js
+*.browser.js
+*.node.js
+node_modules/
