@@ -15,9 +15,9 @@ Vue.component('plain-list', {
 Vue.component('p2p.list-of-peers', {
     template: `<plain-list ref="list"/>`,
     mounted() {
-        c.deferred.init.promise.then(() => {
-            this.updatePeers(c.swarm.webrtc);
-            c.swarm.on('connection', () => this.updatePeers(c.swarm.webrtc));
+        c1.deferred.init.promise.then(() => {
+            this.updatePeers(c1.swarm.webrtc);
+            c1.swarm.on('connection', () => this.updatePeers(c1.swarm.webrtc));
         });
     },
     methods: {
@@ -30,10 +30,9 @@ Vue.component('p2p.list-of-peers', {
 Vue.component('p2p.list-of-messages', {
     template: `<plain-list ref="list"/>`,
     mounted() {
-        c.deferred.ready.promise.then(() => {
-            console.log(c.feed);
-            this.updateMessages(c.feed);
-            c.feed.on('append', () => this.updateMessages(c.feed));
+        c1.deferred.ready.promise.then(() => {
+            this.updateMessages(c1.feed);
+            c1.feed.on('append', () => this.updateMessages(c1.feed));
         });
     },
     methods: {
