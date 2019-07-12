@@ -1,19 +1,23 @@
 var signalhubws = require('signalhubws');
-var hypercore = require('hypercore');
+var hypercore = require('hypercore'),
+    protocol = require('hypercore-protocol');
 //var Discovery = require('hyperdiscovery')
 var discovery = require('discovery-swarm-web');
 
 var ram = require('random-access-memory');
 
-const duplexify = require('duplexify'),
-      through2 = require('through2'),
-      {EventEmitter} = require('events');
+const {EventEmitter} = require('events');
+
+const deferred = require('./src/core/deferred');
 
 
 /* This can work in node as well, but currently requires a tiny patch to discovery-swarm-web */
 const node_require = require, /* bypass browserify */
       node_ws = (typeof WebSocket === 'undefined') ? node_require('websocket').w3cwebsocket : undefined,
       wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('wrtc') : undefined;
+
+
+var BOOTSTRAP_KEY = Buffer.from('deadbeefdeadbeefdeadbeefdeadbeef');
 
 
 class Client extends EventEmitter {
@@ -23,8 +27,10 @@ class Client extends EventEmitter {
         this.storage = (fn) => { console.log(fn); return ram(); }
         this.deferred = {init: deferred(), ready: deferred()};
 
-        this.muxPeers = new Map();
+        this.peers = new Map();
         this.remoteFeeds = [];
+
+        this._listenPromises = new Map();
     }
 
     init() {
@@ -38,26 +44,33 @@ class Client extends EventEmitter {
 
             this.swarm = discovery({signalhub: this.hub, wrtc,
                 stream: (info) => {
-                    console.log('stream', info); 
-                    //var s = this.feed.replicate({live: true});
-                    var m = new Muxer((id) => this.listen(id));
-                    this.muxPeers.set(info.id, m);
-                    //this.muxer.add(s);
-                    Promise.resolve().then(() => m.stream.emit('handshake'));
-                    return m.stream;
-                    //return s;
+                    console.log('stream', info);
+                    try{
+                        var peer = new Peer();
+                        this._populate(peer);
+                        this.peers.set(info.id, peer);
+                        return peer.protocol;
+                    }
+                    catch (e) { console.error(e); }
                 }
             });
             
-            this.advertise = new Advertise(this.hub);
-            /*
-            this.hub.once('open', () => {
-                this.advertise.start(() => this.advertisedKey);
-
-                setTimeout(resolve, 1500);  // TODO wait for swarm?
-            });*/
             this.hub.once('open', () => resolve());
         });
+    }
+
+    _control(peer, info) {
+        console.log('control', this.shortKey(), peer.id, info);
+        for (let key of info.have || []) {
+            if (key !== this.key)  // skip self
+                this.listen(key).then(feed => peer.share(feed));
+        }
+    }
+
+    _dispatch(info) {
+        for (let peer of this.peers.values()) {
+            peer.control(info);
+        }
     }
 
     _mkfeed(key) {
@@ -76,38 +89,55 @@ class Client extends EventEmitter {
         this.feed = this._mkfeed(key);
 
         this.feed.on('ready', () => this.onReady());
+
+        return this.deferred.ready;
     }
 
     listen(key) {
+        var v = this._listenPromises.get(key);
+        if (!v) {
+            this._listenPromises.set(key, v = this._listen(key));
+        }
+        return v;
+    }
+
+    _listen(key) {
         var feed = this._mkfeed(key);
 
         this.remoteFeeds.push(feed);
 
         return new Promise((resolve, reject) => {
-            feed.on('ready', () => resolve(feed.replicate({live: true})));
+            feed.on('ready', () => resolve(feed));
             feed.on('error', (e) => reject(e));
         });
     }
 
     publish() {
-        var id = this.feed.key;
-        for (let mux of this.muxPeers.values()) {
-            mux.add(id, this.feed.replicate({live: true}));
-        }   
+        var id = this.key;
+        for (let peer of this.peers.values()) {
+            peer.share(this.feed);
+        }
+        this._dispatch({have: [id]});
     }
 
-    async join() {
-        await this.init();
+    _populate(peer) {
+        peer.on('control', info => this._control(peer, info))
 
-        this.create(await this.advertise.ask());
+        var feeds = [this.feed].concat(this.remoteFeeds).filter(x => x);
+        for (let feed of feeds) peer.share(feed);
+
+        var info = {have: feeds.map(x => this.longKey(x))};
+        peer.control(info);
+    }
+
+    async join(channel) {
+        await this.create();
+
+        this.swarm.join(channel);
     }
 
     get key() {
         return this.longKey();
-    }
-
-    get advertisedKey() {
-        return this.feed && this.feed.writable ? this.key : undefined;
     }
 
     longKey(feed) {
@@ -123,11 +153,7 @@ class Client extends EventEmitter {
     onReady() {
         console.log("feed.ready");
 
-        //this.swarm.join(this.key, {wrtc});
         this.deferred.ready.resolve();
-
-        // from this point on the hub connection is kept-alive by the swarm
-        this.advertise.stopAsking();
     }
 
     async onAppend(feed) {
@@ -161,111 +187,31 @@ class Client extends EventEmitter {
 }
 
 
-class Advertise {
-    constructor(hub) {
-        this.hub = hub;
-        this.questionInterval = 3000;
+class Peer extends EventEmitter {
+    constructor(opts) {
+        super();
+        this.protocol = protocol(opts);
+        this.bootstrap = this.protocol.feed(BOOTSTRAP_KEY);
+        this.bootstrap.on('data', (msg) => this._onData(msg));
+        this._index = 0;
     }
-    start(answer) {
-        this.hub.subscribe('?').on('data', () => {
-            var res = answer();
-            console.log('announce:answer', res);
-            if (res)
-                this.hub.broadcast('!', res);
-        });
-
-        this._keepAsking = setInterval(() => { 
-            console.log('announce:ask'); this.hub.broadcast('?', '?'); 
-        }, this.questionInterval);
+    get id() {
+        return this.protocol.id;
     }
-    ask() {
-        return new Promise((resolve, reject) => {
-            this.hub.subscribe('!').once('data', (msg) => { console.log(msg); resolve(msg); });
-            this.hub.broadcast('?', '?');
-        });
-    }        
-    stopAsking() {
-        if (this._keepAsking)
-            clearInterval(this._keepAsking);
+    control(info) {
+        var index = this._index++;
+        this.bootstrap.data({index, value: JSON.stringify(info)});
+    }
+    _onData(msg) {
+        console.log(msg);
+        this.emit('control', JSON.parse(msg.value));
+    }
+    share(feed) {
+        feed.replicate({stream: this.protocol, live: true});
     }
 }
 
-class Deferred {
-    constructor() {
-        this.promise = new Promise((resolve, reject) => {
-            this.resolve = resolve; this.reject = reject;
-        });
-    }
-    then(cb)  { return this.promise.then(cb); }
-    catch(cb) { return this.promise.catch(cb); }
-}
 
-function deferred() { return new Deferred(); }
-
-
-
-class Muxer {
-    constructor(broker) {
-        this.broker = broker;
-
-        const self = this;
-
-        function passw(chunk, enc, callback) {
-            console.log(`Muxer.passw (${chunk.length})`, chunk.toString('hex'));
-            var id = chunk.slice(0, 32);
-            chunk = chunk.slice(32);
-            self.getSubstream(id).then(s => s.write(chunk));
-            callback(null);
-        }
-        function passr(chunk, enc, callback) {
-            console.log(`Muxer.passr (${chunk.length})`, chunk.toString('hex'));
-            callback(null, chunk);
-        }
-
-        //this.w = though2(passw);  this.w.pipe(stream);        
-        //this.r = though2(passr);  this.r = stream.pipe(this.r);
-      
-        this.w = through2(passw);
-        this.r = through2(passr);
-
-        this.stream = duplexify(this.w, this.r);
-
-        this.substreams = new Map();
-    }
-
-    add(id, stream) {
-        var key = id.toString('hex');
-        this.substreams.set(key, Promise.resolve(stream));
-        this._pipe(id, stream);
-    }
-
-    _pipe(id, stream) {
-        stream.pipe(this._prefixStream(id)).pipe(this.r);
-    }
-
-    getSubstream(id) {
-        var key = id.toString('hex');
-        if (!this.substreams.get(key)) {
-            this.substreams.set(key, new Promise((resolve, reject) => {
-                this.broker(id).then(s => {
-                    this._pipe(id, s);
-                    resolve(s);
-                });
-            }));
-        }
-        return this.substreams.get(key);
-    }
-
-    _prefixStream(id) {
-        var pre = Buffer.from(id);
-        if (pre.length !== 32)
-            console.error('bad prefix', id);
-        return through2((chunk, enc, callback) => {
-            chunk = Buffer.concat([pre, chunk]);
-            callback(null, chunk);
-        });
-    }
-}
 
 
 var c1 = new Client();
@@ -289,4 +235,4 @@ if (typeof window !== 'undefined') {
     Object.assign(window, {c1, c2, setup});
 }
 else
-    c1.join();
+    c1.join('lobby');

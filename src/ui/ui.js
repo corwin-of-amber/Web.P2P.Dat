@@ -18,9 +18,12 @@ Vue.component('plain-list', {
 Vue.component('p2p.list-of-peers', {
     template: `<plain-list ref="list"/>`,
     mounted() {
-        c1.deferred.init.promise.then(() => {
-            this.updatePeers(c1.swarm.webrtc);
-            c1.swarm.on('connection', () => this.updatePeers(c1.swarm.webrtc));
+        this.$root.$watch('client', (c) => {
+            c.deferred.init.promise.then(() => {
+                this.updatePeers(c.swarm.webrtc);
+                c.swarm.webrtc.on('connection', () => this.updatePeers(c1.swarm.webrtc));
+                c.swarm.webrtc.on('connection-closed', () => this.updatePeers(c1.swarm.webrtc));
+            });
         });
     },
     methods: {
@@ -32,12 +35,14 @@ Vue.component('p2p.list-of-peers', {
 
 Vue.component('p2p.list-of-messages', {
     template: `<plain-list ref="list"/>`,
-    data: () => ({ messages: ['a', 'b', 'c']}),
+    data: () => ({ messages: ['(Welcome)']}),
     mounted() {
-        this.$refs.list.items = this.messages;
-        c1.on('append', ev => {
-            this.messages.push(ev.data);
+        this.$root.$watch('client', (c) => {
+            c.on('append', ev => {
+                this.messages.push(ev.data);
+            });
         });
+        this.$refs.list.items = this.messages;
     },
     methods: {
         updateMessages(feed) {
@@ -59,13 +64,18 @@ function getPeers(webrtcSwarm) {
 class App {
     constructor(dom) {
         this.vue = new Vue({
-            el: dom
+            el: dom,
+            data: {client: undefined}
         });
+    }
+    attach(client) {
+        this.vue.client = client;
     }
 }
 
 App.start = function (root) {
     window.app = new App(root || document.querySelector('#app'));
+    return window.app;
 }
 
 

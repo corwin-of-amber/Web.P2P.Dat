@@ -2,3 +2,4 @@
 *.browser.js
 *.node.js
 node_modules/
+/*.zip
