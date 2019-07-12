@@ -6,7 +6,8 @@ var discovery = require('discovery-swarm-web');
 var ram = require('random-access-memory');
 
 const duplexify = require('duplexify'),
-      through2 = require('through2');
+      through2 = require('through2'),
+      {EventEmitter} = require('events');
 
 
 /* This can work in node as well, but currently requires a tiny patch to discovery-swarm-web */
@@ -15,9 +16,10 @@ const node_require = require, /* bypass browserify */
       wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('wrtc') : undefined;
 
 
-class Client {
+class Client extends EventEmitter {
 
     constructor() {
+        super();
         this.storage = (fn) => { console.log(fn); return ram(); }
         this.deferred = {init: deferred(), ready: deferred()};
 
@@ -34,11 +36,11 @@ class Client {
         return new Promise((resolve, reject) => {
             this.hub = signalhubws('hyper-chat-example', ['wss://signalhubws.mauve.moe'], node_ws);
 
-            this.swarm = discovery({signalhub: this.hub,
+            this.swarm = discovery({signalhub: this.hub, wrtc,
                 stream: (info) => {
                     console.log('stream', info); 
                     //var s = this.feed.replicate({live: true});
-                    var m = new Muxer((idx) => this.listen(keys[idx]));
+                    var m = new Muxer((id) => this.listen(id));
                     this.muxPeers.set(info.id, m);
                     //this.muxer.add(s);
                     Promise.resolve().then(() => m.stream.emit('handshake'));
@@ -61,8 +63,9 @@ class Client {
     _mkfeed(key) {
         var feed = hypercore(this.storage, key, {valueEncoding: 'json'});
 
-        feed.on('error', e => this.onError(e));
+        feed.on('error', e => this.onError(feed, e));
         feed.on('append', () => this.onAppend(feed));
+        feed.lastLength = 0;
 
         return feed;
     }
@@ -73,8 +76,6 @@ class Client {
         this.feed = this._mkfeed(key);
 
         this.feed.on('ready', () => this.onReady());
-
-        this.lastLength = 0;
     }
 
     listen(key) {
@@ -88,9 +89,10 @@ class Client {
         });
     }
 
-    publish(idx=0) {
+    publish() {
+        var id = this.feed.key;
         for (let mux of this.muxPeers.values()) {
-            mux.add(idx, this.feed.replicate({live: true}));
+            mux.add(id, this.feed.replicate({live: true}));
         }   
     }
 
@@ -101,11 +103,21 @@ class Client {
     }
 
     get key() {
-        return this.feed && this.feed.key && this.feed.key.toString('hex');
+        return this.longKey();
     }
 
     get advertisedKey() {
         return this.feed && this.feed.writable ? this.key : undefined;
+    }
+
+    longKey(feed) {
+        feed = feed || this.feed;
+        return feed && feed.key && feed.key.toString('hex');
+    }
+
+    shortKey(feed) {
+        var key = this.longKey(feed);
+        return key && key.substring(0, 6);
     }
 
     onReady() {
@@ -119,22 +131,27 @@ class Client {
     }
 
     async onAppend(feed) {
-        console.log("feed.append");
+        console.log("feed.append", this.shortKey(), this.shortKey(feed));
 
-        if (feed == this.feed) {
-            var from = this.lastLength, to = feed.length;
-            this.lastLength = feed.length;
+        var from = feed.lastLength, to = feed.length;
+        feed.lastLength = feed.length;
 
-            for (let i = from; i < to; i++) {
+        for (let i = from; i < to; i++) {
+            try {
                 let item = await new Promise((resolve, reject) =>
                     feed.get(i, (err, data) => err ? reject(err) : resolve(data)));
                 console.log(i, item);
+                this.emit('append', {me: this.key, from: this.longKey(feed), feed, 
+                    index: i, data: item})
+            }
+            catch (e) {
+                this.onError(feed, e);
             }
         }
     }
 
-    onError(e) {
-        console.error('[feed error]', e);
+    onError(feed, e) {
+        console.error('[feed error]', this.shortKey(feed), e);
     }
 
     close() {
@@ -186,8 +203,6 @@ class Deferred {
 function deferred() { return new Deferred(); }
 
 
-var keys = [];
-
 
 class Muxer {
     constructor(broker) {
@@ -196,14 +211,14 @@ class Muxer {
         const self = this;
 
         function passw(chunk, enc, callback) {
-            console.log("Muxer.passw", chunk);
-            var idx = chunk[0];
-            chunk = chunk.slice(1);
-            self.getSubstream(idx).then(s => s.write(chunk));
+            console.log(`Muxer.passw (${chunk.length})`, chunk.toString('hex'));
+            var id = chunk.slice(0, 32);
+            chunk = chunk.slice(32);
+            self.getSubstream(id).then(s => s.write(chunk));
             callback(null);
         }
         function passr(chunk, enc, callback) {
-            console.log("Muxer.passr", chunk);
+            console.log(`Muxer.passr (${chunk.length})`, chunk.toString('hex'));
             callback(null, chunk);
         }
 
@@ -215,32 +230,36 @@ class Muxer {
 
         this.stream = duplexify(this.w, this.r);
 
-        this.substreams = [];
+        this.substreams = new Map();
     }
 
-    add(idx, stream) {
-        this.substreams[idx] = Promise.resolve(stream);
-        this._pipe(idx, stream);
+    add(id, stream) {
+        var key = id.toString('hex');
+        this.substreams.set(key, Promise.resolve(stream));
+        this._pipe(id, stream);
     }
 
-    _pipe(idx, stream) {
-        stream.pipe(this._preindexStream(idx)).pipe(this.r);
+    _pipe(id, stream) {
+        stream.pipe(this._prefixStream(id)).pipe(this.r);
     }
 
-    getSubstream(idx) {
-        if (!this.substreams[idx]) {
-            this.substreams[idx] = new Promise((resolve, reject) => {
-                this.broker(idx).then(s => {
-                    this._pipe(idx, s);
+    getSubstream(id) {
+        var key = id.toString('hex');
+        if (!this.substreams.get(key)) {
+            this.substreams.set(key, new Promise((resolve, reject) => {
+                this.broker(id).then(s => {
+                    this._pipe(id, s);
                     resolve(s);
                 });
-            });
+            }));
         }
-        return this.substreams[idx];
+        return this.substreams.get(key);
     }
 
-    _preindexStream(idx) {
-        var pre = Buffer.from([idx]);
+    _prefixStream(id) {
+        var pre = Buffer.from(id);
+        if (pre.length !== 32)
+            console.error('bad prefix', id);
         return through2((chunk, enc, callback) => {
             chunk = Buffer.concat([pre, chunk]);
             callback(null, chunk);
@@ -252,12 +271,22 @@ class Muxer {
 var c1 = new Client();
 var c2 = new Client();
 
+function setup() {
+    c1.init(); c2.init();
+    c1.swarm.join('lobby'); setTimeout(() => c2.swarm.join('lobby'), 500);
+}
+
+
 
 if (typeof window !== 'undefined') {
+    if (typeof App === 'undefined') {
+        console.log(require('./src/ui/ui'));
+        Object.assign(window, require('./src/ui/ui'));
+    }
     window.addEventListener('unload', () => {
         c1.close(); c2.close();
     });
-    Object.assign(window, {c1, c2, keys});
+    Object.assign(window, {c1, c2, setup});
 }
 else
     c1.join();

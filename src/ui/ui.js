@@ -1,3 +1,6 @@
+const Vue = require('vue/dist/vue');
+
+
 
 Vue.component('plain-list', {
     data: function() {
@@ -29,10 +32,11 @@ Vue.component('p2p.list-of-peers', {
 
 Vue.component('p2p.list-of-messages', {
     template: `<plain-list ref="list"/>`,
+    data: () => ({ messages: ['a', 'b', 'c']}),
     mounted() {
-        c1.deferred.ready.promise.then(() => {
-            this.updateMessages(c1.feed);
-            c1.feed.on('append', () => this.updateMessages(c1.feed));
+        this.$refs.list.items = this.messages;
+        c1.on('append', ev => {
+            this.messages.push(ev.data);
         });
     },
     methods: {
@@ -50,15 +54,6 @@ function getPeers(webrtcSwarm) {
     return l;
 }
 
-function readMessages(feed, list) {
-    // use splice() to force Vue to update,
-    // but make sure there are enough elements first.
-    var set = (i, v) => { list[i] = v; list.splice(i, 1, v); }
-
-    for (let i = 0; i < feed.length; i++) {
-        feed.get(i, (_, data) => set(i, data));
-    }
-}
 
 
 class App {
@@ -71,4 +66,10 @@ class App {
 
 App.start = function (root) {
     window.app = new App(root || document.querySelector('#app'));
+}
+
+
+
+if (typeof module !== 'undefined') {
+    module.exports = {App};
 }
