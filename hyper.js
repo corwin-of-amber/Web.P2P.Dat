@@ -25,9 +25,10 @@ class Client extends EventEmitter {
     constructor() {
         super();
         this.storage = (fn) => { console.log(fn); return ram(); }
-        this.deferred = {init: deferred(), ready: deferred()};
+        this.deferred = {init: deferred()};
 
         this.peers = new Map();
+        this.localFeeds = [];
         this.remoteFeeds = [];
 
         this._listenPromises = new Map();
@@ -45,7 +46,7 @@ class Client extends EventEmitter {
             this.swarm = discovery({signalhub: this.hub, wrtc,
                 stream: (info) => {
                     console.log('stream', info);
-                    try{
+                    try {
                         var peer = new Peer();
                         this._populate(peer);
                         this.peers.set(info.id, peer);
@@ -62,35 +63,21 @@ class Client extends EventEmitter {
     _control(peer, info) {
         console.log('control', this.shortKey(), peer.id, info);
         for (let key of info.have || []) {
-            if (key !== this.key)  // skip self
+            if (!this.localFeeds.some(x => this.longKey(x) === key))  // skip local
                 this.listen(key).then(feed => peer.share(feed));
+            // TODO: avoid multiple shares of same feed?
         }
-    }
-
-    _dispatch(info) {
-        for (let peer of this.peers.values()) {
-            peer.control(info);
-        }
-    }
-
-    _mkfeed(key) {
-        var feed = hypercore(this.storage, key, {valueEncoding: 'json'});
-
-        feed.on('error', e => this.onError(feed, e));
-        feed.on('append', () => this.onAppend(feed));
-        feed.lastLength = 0;
-
-        return feed;
     }
 
     async create(key) {
-        await this.init();
+        var feed = this._mkfeed(key);
 
-        this.feed = this._mkfeed(key);
+        if (!this.feed) {
+            this.feed = feed;
+        }
+        this.localFeeds.push(feed);
 
-        this.feed.on('ready', () => this.onReady());
-
-        return this.deferred.ready;
+        return this._waitForReady(feed);
     }
 
     listen(key) {
@@ -106,24 +93,37 @@ class Client extends EventEmitter {
 
         this.remoteFeeds.push(feed);
 
-        return new Promise((resolve, reject) => {
-            feed.on('ready', () => resolve(feed));
-            feed.on('error', (e) => reject(e));
-        });
+        return this._waitForReady(feed);
     }
 
     publish() {
-        var id = this.key;
         for (let peer of this.peers.values()) {
-            peer.share(this.feed);
+            peer.publish(this.localFeeds);
         }
-        this._dispatch({have: [id]});
+    }
+
+    _mkfeed(key) {
+        var feed = hypercore(this.storage, key, {valueEncoding: 'json'});
+
+        feed.on('error', e => this.onError(feed, e));
+        feed.on('append', () => this.onAppend(feed));
+        feed.lastLength = 0;
+
+        return feed;
+    }
+
+    _waitForReady(feed) {
+        return new Promise((resolve, reject) => {
+            feed.on('ready', () => {
+                feed.removeListener('error', reject); resolve(feed); });
+            feed.on('error', reject);
+        });
     }
 
     _populate(peer) {
         peer.on('control', info => this._control(peer, info))
 
-        var feeds = [this.feed].concat(this.remoteFeeds).filter(x => x);
+        var feeds = this.localFeeds.concat(this.remoteFeeds);
         for (let feed of feeds) peer.share(feed);
 
         var info = {have: feeds.map(x => this.longKey(x))};
@@ -131,7 +131,9 @@ class Client extends EventEmitter {
     }
 
     async join(channel) {
-        await this.create();
+        await this.init();
+        
+        if (!this.feed) this.create();
 
         this.swarm.join(channel);
     }
@@ -148,12 +150,6 @@ class Client extends EventEmitter {
     shortKey(feed) {
         var key = this.longKey(feed);
         return key && key.substring(0, 6);
-    }
-
-    onReady() {
-        console.log("feed.ready");
-
-        this.deferred.ready.resolve();
     }
 
     async onAppend(feed) {
@@ -203,11 +199,17 @@ class Peer extends EventEmitter {
         this.bootstrap.data({index, value: JSON.stringify(info)});
     }
     _onData(msg) {
-        console.log(msg);
         this.emit('control', JSON.parse(msg.value));
     }
     share(feed) {
         feed.replicate({stream: this.protocol, live: true});
+    }
+    publish(feeds) {
+        if (feeds.length > 0) {
+            for (let feed of feeds) this.share(feed);
+            var keys = feeds.map(x => x.key.toString('hex'));
+            this.control({have: keys});
+        }
     }
 }
 

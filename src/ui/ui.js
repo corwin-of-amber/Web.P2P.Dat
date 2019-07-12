@@ -21,8 +21,8 @@ Vue.component('p2p.list-of-peers', {
         this.$root.$watch('client', (c) => {
             c.deferred.init.promise.then(() => {
                 this.updatePeers(c.swarm.webrtc);
-                c.swarm.webrtc.on('connection', () => this.updatePeers(c1.swarm.webrtc));
-                c.swarm.webrtc.on('connection-closed', () => this.updatePeers(c1.swarm.webrtc));
+                c.swarm.webrtc.on('connection', () => this.updatePeers(c.swarm.webrtc));
+                c.swarm.webrtc.on('connection-closed', () => this.updatePeers(c.swarm.webrtc));
             });
         });
     },
@@ -43,11 +43,6 @@ Vue.component('p2p.list-of-messages', {
             });
         });
         this.$refs.list.items = this.messages;
-    },
-    methods: {
-        updateMessages(feed) {
-            readMessages(feed, this.$refs.list.items);
-        }
     }    
 });
 
