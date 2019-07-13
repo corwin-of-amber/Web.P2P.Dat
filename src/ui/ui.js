@@ -18,17 +18,29 @@ Vue.component('plain-list', {
 Vue.component('p2p.list-of-peers', {
     template: `<plain-list ref="list"/>`,
     mounted() {
-        this.$root.$watch('client', (c) => {
-            c.deferred.init.promise.then(() => {
-                this.updatePeers(c.swarm.webrtc);
-                c.swarm.webrtc.on('connection', () => this.updatePeers(c.swarm.webrtc));
-                c.swarm.webrtc.on('connection-closed', () => this.updatePeers(c.swarm.webrtc));
-            });
+        this.$root.$watch('clientState', (state) => {
+            this.unregister(); this.register(state.client);
         });
     },
     methods: {
         updatePeers(webrtc) {
             this.$refs.list.items = getPeers(webrtc);
+        },
+        register(client) {
+            client.deferred.init.then(() => {
+                var cb = () => this.updatePeers(client.swarm.webrtc);
+                client.swarm.webrtc.on('connection', cb);
+                client.swarm.webrtc.on('connection-closed', cb);
+                cb();
+                this._registered = {webrtc: client.swarm.webrtc, cb};
+            })
+        },
+        unregister() {
+            if (this._registered) {
+                var {webrtc, cb} = this._registered;
+                webrtc.removeListener('connection', cb);
+                webrtc.removeListener('connection-closed', cb);
+            }
         }
     }
 });
@@ -37,13 +49,24 @@ Vue.component('p2p.list-of-messages', {
     template: `<plain-list ref="list"/>`,
     data: () => ({ messages: ['(Welcome)']}),
     mounted() {
-        this.$root.$watch('client', (c) => {
-            c.on('append', ev => {
-                this.messages.push(ev.data);
-            });
+        this.$root.$watch('clientState', (state) => {
+            this.unregister(); this.register(state.client);
         });
         this.$refs.list.items = this.messages;
-    }    
+    },
+    methods: {
+        register(client) {
+            var cb = ev => { this.messages.push(ev.data); };
+            client.on('append', cb);
+            this._registered = {client, cb};
+        },
+        unregister() {
+            if (this._registered) {
+                var {client, cb} = this._registered;
+                client.removeListener('append', cb);
+            }
+        }
+    }
 });
 
 function getPeers(webrtcSwarm) {
@@ -60,11 +83,16 @@ class App {
     constructor(dom) {
         this.vue = new Vue({
             el: dom,
-            data: {client: undefined}
+            data: {clientState: undefined}
         });
     }
     attach(client) {
-        this.vue.client = client;
+        this.vue.client = client;  // non-reactive
+        var update = () =>
+            this.vue.clientState = { 
+                get client() { return client; }
+            };
+        update(); client.on('init', update);
     }
 }
 

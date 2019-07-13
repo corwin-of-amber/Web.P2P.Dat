@@ -43,7 +43,9 @@ class Client extends EventEmitter {
         return new Promise((resolve, reject) => {
             this.hub = signalhubws('hyper-chat-example', ['wss://signalhubws.mauve.moe'], node_ws);
 
-            this.swarm = discovery({signalhub: this.hub, wrtc,
+            var id = this.swarm ? this.swarm.id : undefined;
+
+            this.swarm = discovery({signalhub: this.hub, id, wrtc,
                 stream: (info) => {
                     console.log('stream', info);
                     try {
@@ -56,7 +58,15 @@ class Client extends EventEmitter {
                 }
             });
             
-            this.hub.once('open', () => resolve());
+            this.hub.once('open', () => {
+                for (let s of this.hub.sockets) {
+                    s.onclose = () => this.reconnect();
+                }
+                resolve(); this.emit('init');
+            });
+
+            this.id = this.swarm.id.toString('hex');
+            console.log("me: ", this.id);
         });
     }
 
@@ -177,8 +187,20 @@ class Client extends EventEmitter {
     }
 
     close() {
-        if (this.hub) this.hub.close();
-        if (this.swarm) this.swarm.close();   
+        if (this.hub) {
+            for (let s of this.hub.sockets) s.onclose = null; // prevent reconnect
+            this.hub.close();
+        }
+        if (this.swarm) {
+            if (this.swarm.webrtc) this.swarm.webrtc.close(); // bug in discovery-swarm-web
+            this.swarm.close();
+        }
+        this._initPromise = null;
+    }
+
+    reconnect() {
+        this.close(); return this.init();
+        // TODO: re-join swarm channels
     }
 }
 
@@ -231,7 +253,7 @@ if (typeof window !== 'undefined') {
         console.log(require('./src/ui/ui'));
         Object.assign(window, require('./src/ui/ui'));
     }
-    window.addEventListener('unload', () => {
+    window.addEventListener('beforeunload', () => {
         c1.close(); c2.close();
     });
     Object.assign(window, {c1, c2, setup});
