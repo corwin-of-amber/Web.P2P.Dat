@@ -26,6 +26,8 @@ class SwarmClient extends EventEmitter {
         super();
         this.opts = opts;
         this.deferred = {init: deferred()};
+
+        this.channels = new Set();
     }
 
     init() {
@@ -49,13 +51,14 @@ class SwarmClient extends EventEmitter {
             });
 
             this.id = this.swarm.id.toString('hex');
-            console.log("me: ", this.id);
+            console.log(`me: %c${this.id}`, 'color: green;');
         });
     }
 
     async join(channel) {
-        await this.init();
+        this.channels.add(channel);
 
+        await this.init();
         this.swarm.join(channel);
     }
 
@@ -69,9 +72,11 @@ class SwarmClient extends EventEmitter {
         this._initPromise = null;
     }
 
-    reconnect() {
-        this.close(); return this.init();
-        // TODO: re-join swarm channels
+    async reconnect() {
+        this.close();
+        
+        await this.init();
+        for (let chan of this.channels) this.join(chan)
     }
 
     _registerReconnect() {
@@ -158,7 +163,7 @@ class Client extends SwarmClient {
         var feed = hypercore(this.opts.storage, key, {valueEncoding: 'json'});
 
         feed.on('ready', () =>
-            console.log("feed", this.shortKey(feed)));
+            console.log(`feed %c${this.shortKey(feed)}`, 'color: blue;'));
 
         feed.on('error', e => this.onError(feed, e));
         feed.on('append', () => this.onAppend(feed));
