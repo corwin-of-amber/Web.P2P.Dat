@@ -20,18 +20,12 @@ const node_require = require, /* bypass browserify */
 var BOOTSTRAP_KEY = Buffer.from('deadbeefdeadbeefdeadbeefdeadbeef');
 
 
-class Client extends EventEmitter {
+class SwarmClient extends EventEmitter {
 
-    constructor() {
+    constructor(opts) {
         super();
-        this.storage = (fn) => { console.log(fn); return ram(); }
+        this.opts = opts;
         this.deferred = {init: deferred()};
-
-        this.peers = new Map();
-        this.localFeeds = [];
-        this.remoteFeeds = [];
-
-        this._listenPromises = new Map();
     }
 
     init() {
@@ -46,28 +40,76 @@ class Client extends EventEmitter {
             var id = this.swarm ? this.swarm.id : undefined;
 
             this.swarm = discovery({signalhub: this.hub, id, wrtc,
-                stream: (info) => {
-                    console.log('stream', info);
-                    try {
-                        var peer = new Peer();
-                        this._populate(peer);
-                        this.peers.set(info.id, peer);
-                        return peer.protocol;
-                    }
-                    catch (e) { console.error(e); }
-                }
+                stream: this.opts.stream
             });
             
             this.hub.once('open', () => {
-                for (let s of this.hub.sockets) {
-                    s.onclose = () => this.reconnect();
-                }
+                this._registerReconnect();
                 resolve(); this.emit('init');
             });
 
             this.id = this.swarm.id.toString('hex');
             console.log("me: ", this.id);
         });
+    }
+
+    async join(channel) {
+        await this.init();
+
+        this.swarm.join(channel);
+    }
+
+    close() {
+        this._unregisterReconnect();
+        if (this.hub) this.hub.close();
+        if (this.swarm) {
+            if (this.swarm.webrtc) this.swarm.webrtc.close(); // bug in discovery-swarm-web
+            this.swarm.close();
+        }
+        this._initPromise = null;
+    }
+
+    reconnect() {
+        this.close(); return this.init();
+        // TODO: re-join swarm channels
+    }
+
+    _registerReconnect() {
+        for (let s of this.hub.sockets) s.onclose = () => this.reconnect();
+    }
+
+    _unregisterReconnect() {
+        if (this.hub) {
+            for (let s of this.hub.sockets) s.onclose = null
+        }
+    }
+}
+
+
+class Client extends SwarmClient {
+
+    constructor() {
+        super({
+            stream: info => this._stream(info),
+            storage: ram
+        });
+
+        this.peers = new Map();
+        this.localFeeds = [];
+        this.remoteFeeds = [];
+
+        this._listenPromises = new Map();
+    }
+
+    _stream(info) {
+        console.log('stream', info);
+        try {
+            var peer = new Peer();
+            this._populate(peer);
+            this.peers.set(info.id, peer);
+            return peer.protocol;
+        }
+        catch (e) { console.error(e); }
     }
 
     _control(peer, info) {
@@ -113,7 +155,10 @@ class Client extends EventEmitter {
     }
 
     _mkfeed(key) {
-        var feed = hypercore(this.storage, key, {valueEncoding: 'json'});
+        var feed = hypercore(this.opts.storage, key, {valueEncoding: 'json'});
+
+        feed.on('ready', () =>
+            console.log("feed", this.shortKey(feed)));
 
         feed.on('error', e => this.onError(feed, e));
         feed.on('append', () => this.onAppend(feed));
@@ -140,12 +185,10 @@ class Client extends EventEmitter {
         peer.control(info);
     }
 
-    async join(channel) {
-        await this.init();
-        
+    join(channel) {
         if (!this.feed) this.create();
 
-        this.swarm.join(channel);
+        return super.join(channel);
     }
 
     get key() {
@@ -184,23 +227,6 @@ class Client extends EventEmitter {
 
     onError(feed, e) {
         console.error('[feed error]', this.shortKey(feed), e);
-    }
-
-    close() {
-        if (this.hub) {
-            for (let s of this.hub.sockets) s.onclose = null; // prevent reconnect
-            this.hub.close();
-        }
-        if (this.swarm) {
-            if (this.swarm.webrtc) this.swarm.webrtc.close(); // bug in discovery-swarm-web
-            this.swarm.close();
-        }
-        this._initPromise = null;
-    }
-
-    reconnect() {
-        this.close(); return this.init();
-        // TODO: re-join swarm channels
     }
 }
 
