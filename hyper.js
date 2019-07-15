@@ -2,7 +2,8 @@ var signalhubws = require('signalhubws');
 var hypercore = require('hypercore'),
     protocol = require('hypercore-protocol');
 //var Discovery = require('hyperdiscovery')
-var discovery = require('discovery-swarm-web');
+//var discovery = require('discovery-swarm-web');
+var swarm = require('./src/net/discovery-swarm-web-thin');
 
 var ram = require('random-access-memory');
 
@@ -18,6 +19,7 @@ const node_require = require, /* bypass browserify */
 
 
 var BOOTSTRAP_KEY = Buffer.from('deadbeefdeadbeefdeadbeefdeadbeef');
+
 
 
 class SwarmClient extends EventEmitter {
@@ -37,11 +39,12 @@ class SwarmClient extends EventEmitter {
 
     _init() {
         return new Promise((resolve, reject) => {
-            this.hub = signalhubws('hyper-chat-example', ['wss://signalhubws.mauve.moe'], node_ws);
+            this.hub = //signalhubws('hyper-chat-example', ['wss://signalhubws.mauve.moe'], node_ws);
+                signalhubws('hyper-chat-example', ['wss://amberhubws.herokuapp.com'], node_ws);
 
             var id = this.swarm ? this.swarm.id : undefined;
 
-            this.swarm = discovery({signalhub: this.hub, id, wrtc,
+            this.swarm = swarm({signalhub: this.hub, id, wrtc,
                 stream: this.opts.stream
             });
             
@@ -59,7 +62,7 @@ class SwarmClient extends EventEmitter {
         this.channels.add(channel);
 
         await this.init();
-        this.swarm.join(channel);
+        this.swarm.join(channel, {wrtc});
     }
 
     close() {
@@ -73,6 +76,7 @@ class SwarmClient extends EventEmitter {
     }
 
     async reconnect() {
+        console.log("%c- reconnect -", 'color: red;')
         this.close();
         
         await this.init();
@@ -184,14 +188,16 @@ class Client extends SwarmClient {
         peer.on('control', info => this._control(peer, info))
 
         var feeds = this.localFeeds.concat(this.remoteFeeds);
-        for (let feed of feeds) peer.share(feed);
+        if (feeds.length > 0) {
+            for (let feed of feeds) peer.share(feed);
 
-        var info = {have: feeds.map(x => this.longKey(x))};
-        peer.control(info);
+            var keys = feeds.map(x => this.longKey(x));
+            peer.control({have: keys});
+        }
     }
 
-    join(channel) {
-        if (!this.feed) this.create();
+    join(channel, withFeed=true) {
+        if (withFeed && !this.feed) this.create();
 
         return super.join(channel);
     }
@@ -290,4 +296,4 @@ if (typeof window !== 'undefined') {
     Object.assign(window, {c1, c2, setup});
 }
 else
-    c1.join('lobby');
+    c1.join('lobby', false); // listen only

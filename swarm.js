@@ -1,13 +1,15 @@
 var swarm = require('webrtc-swarm')
-var //signalhub = require('signalhub'),
+var //signalhub = require('signalhub');
     signalhubws = require('signalhubws');
 
 const node_require = require; /* bypass browserify */
 
 const node_ws = (typeof WebSocket === 'undefined') ? node_require('websocket').w3cwebsocket : undefined;
 
-var hub = //signalhub('swarm-example', ['https://signalhub-jccqtwhdwc.now.sh'])
-    signalhubws('swarm-example', ['wss://signalhubws.mauve.moe'], node_ws);
+var hub = //signalhub('swarm-example', ['https://signalhub-jccqtwhdwc.now.sh']);
+    signalhubws('swarm-example', ['wss://amberhubws.herokuapp.com'], node_ws);
+    //signalhubws('swarm-example', ['ws://localhost:3300'], node_ws);
+    //signalhubws('swarm-example', ['wss://signalhubws.mauve.moe'], node_ws);
 
 var swarmConfig = (typeof RTCPeerConnection === 'undefined') ? {wrtc: node_require('wrtc')} : {};
 
