@@ -3,15 +3,11 @@ const Vue = require('vue/dist/vue');
 
 
 Vue.component('plain-list', {
-    data: function() {
-        return {
-            items: []
-        };
-    },
+    data: () => ({ items: [] }),
     template: `
-    <ul class="plain-list">
-        <li v-for="item in items">{{item}}</li>
-    </ul>
+        <ul class="plain-list">
+            <li v-for="item in items">{{item}}</li>
+        </ul>
     `
 });
 
@@ -46,8 +42,8 @@ Vue.component('p2p.list-of-peers', {
 });
 
 Vue.component('p2p.list-of-messages', {
+    data: () => ({ messages: ['(Welcome)'] }),
     template: `<plain-list ref="list"/>`,
-    data: () => ({ messages: ['(Welcome)']}),
     mounted() {
         this.$root.$watch('clientState', (state) => {
             this.unregister(); this.register(state.client);
@@ -64,6 +60,51 @@ Vue.component('p2p.list-of-messages', {
             if (this._registered) {
                 var {client, cb} = this._registered;
                 client.removeListener('append', cb);
+            }
+        }
+    }
+});
+
+Vue.component('p2p.button-join', {
+    props: ['channel'],
+    data: () => ({ pending: false, clientChannels: undefined }),
+    template: `
+        <span class="p2p-button-join" :class="status">
+            <button @click="onClick()" :disabled="disabled">
+                <slot>Join</slot>
+            </button>
+            <label>{{status}}</label>
+        </span>`,
+    computed: {
+        status: function () {
+            return this.joined ? "connected" :
+                (this.pending ? "connecting" : "disconnected");
+        },
+        joined: function() {
+            return this.clientChannels && !!this.clientChannels.get(this._channel);
+        },
+        disabled: function() { return this.status != 'disconnected'; },
+        _channel: function() { return this.channel || 'lobby'; },
+    },
+    mounted() {
+        this.$root.$watch('clientState', (state) => {
+            this.unregister(); this.register(state.client);
+        });
+    },
+    methods: {
+        async register(client) {
+            await client.deferred.init;
+            this.clientChannels = client.swarm.webrtc.channels;
+        },
+        unregister() {
+            this.clientChannels = null;
+        },
+        onClick() {
+            var c = this.$root.clientState.client;
+            if (c) {
+                c.join(this._channel, false);
+                this.pending = true;
+                setTimeout(() => this.pending = false, 5000);
             }
         }
     }
