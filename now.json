@@ -1,0 +1,8 @@
+{
+    "name": "p2p",
+    "version": 2,
+    "builds": [
+        { "src": "*.bundle.js", "use": "@now/static"},
+        { "src": "*.html", "use": "@now/static"}
+    ]
+}
