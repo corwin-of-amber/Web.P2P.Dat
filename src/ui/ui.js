@@ -139,7 +139,7 @@ Vue.component('p2p.button-join', {
                 (this.pending ? "connecting" : "disconnected");
         },
         joined() {
-            return this.clientChannels && !!this.clientChannels.get(this._channel);
+            return this.clientChannels && !!this.clientChannels.has(this._channel);
         },
         disabled() { return !this._client || this.status != 'disconnected'; },
         _channel() { return this.channel || 'lobby'; },
@@ -154,7 +154,11 @@ Vue.component('p2p.button-join', {
     methods: {
         async register(client) {
             await client.deferred.init;
-            this.clientChannels = client.swarm.webrtc.channels;
+            var update = () => this.clientChannels =
+                new Set(client.swarm.webrtc.channels.keys());
+            update();
+            client.swarm.webrtc.on('connection', update);
+            client.swarm.webrtc.on('close', update);
         },
         unregister() {
             this.clientChannels = null;
