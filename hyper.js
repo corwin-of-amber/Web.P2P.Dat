@@ -18,7 +18,7 @@ const node_require = require, /* bypass browserify */
       wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('wrtc') : undefined;
 
 
-var BOOTSTRAP_KEY = Buffer.from('deadbeefdeadbeefdeadbeefdeadbeef');
+var BOOTSTRAP_KEY = Buffer.from('global key for public feeds :):)');
 
 
 
@@ -285,9 +285,11 @@ function setup() {
 
 
 
+if (typeof process !== 'undefined' && process.versions.nw)
+    global.console = window.console;  // for debugging in nwjs
+
 if (typeof window !== 'undefined') {
     if (typeof App === 'undefined') {
-        console.log(require('./src/ui/ui'));
         Object.assign(window, require('./src/ui/ui'));
     }
     window.addEventListener('beforeunload', () => {
