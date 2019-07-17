@@ -138,7 +138,8 @@ class Client extends SwarmClient {
         }
         this.localFeeds.push(feed);
 
-        return this._waitForReady(feed);
+        await this._waitForReady(feed);
+        this.publish([feed]);
     }
 
     listen(key) {
@@ -157,9 +158,9 @@ class Client extends SwarmClient {
         return this._waitForReady(feed);
     }
 
-    publish() {
+    publish(feeds=this.localFeeds) {
         for (let peer of this.peers.values()) {
-            peer.publish(this.localFeeds);
+            peer.publish(feeds);
         }
     }
 

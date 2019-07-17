@@ -180,7 +180,7 @@ Vue.component('p2p.message-input-box', {
     template: `
         <form action="#" @submit="send">
             <input v-model="message">
-            <input type="submit">
+            <input type="submit" value="Send">
         </form>
     `,
     computed: {
@@ -196,7 +196,7 @@ Vue.component('p2p.message-input-box', {
 
                 var c = this._client;
                 if (c) {
-                    if (!c.feed) { await c.create(); c.publish(); }
+                    if (!c.feed) await c.create();
                     c.feed.append(msg);
                     c.feed.once('append', () => this.message = '');
                 }
