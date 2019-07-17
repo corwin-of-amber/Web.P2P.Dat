@@ -92,7 +92,10 @@ Vue.component('p2p.list-of-messages', {
         <div>
             <p2p.source-messages ref="source"/>
             <plain-list ref="list" v-slot="{item}">
-                <message :message="item" v-if="typeof item === 'object'"/>
+                <template v-if="typeof item === 'object'">
+                    <message :message="item" v-if="item.message"/>
+                    <record-object :object="item" v-else/>
+                </template>
                 <template v-else>{{item}}</template>
             </plain-list>
         </div>
@@ -106,7 +109,7 @@ Vue.component('p2p.list-of-messages', {
             props: ['message'],
             template: `
                 <div>
-                    <span class="time">{{time}}</span>
+                    <span class="time" v-if="message.timestamp">{{time}}</span>
                     <span class="message" :dir="dir">{{message.message}}</span>
                 </div>
             `,
@@ -205,6 +208,15 @@ Vue.component('p2p.message-input-box', {
     }
 });
 
+/* generic display of objects (mainly for debugging) */
+Vue.component('record-object', {
+    props: ['object'],
+    template: `
+        <div>
+            <span v-for="(v,k) in object">{{k}}: {{v}}<br/></span>
+        </div>
+    `
+});
 
 
 class App {
