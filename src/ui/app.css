@@ -1,0 +1,7 @@
+
+span.object {
+    display: inline-block;
+    vertical-align: top;
+    padding: 2px;
+    outline: 1px solid #eee;
+}

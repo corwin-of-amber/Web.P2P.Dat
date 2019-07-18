@@ -220,7 +220,7 @@ class FeedClient extends SwarmClient {
     }
 
     async onAppend(feed) {
-        console.log("feed.append", this.shortKey(), this.shortKey(feed));
+        //console.log("feed.append", this.shortKey(), this.shortKey(feed));
 
         var from = feed.lastLength, to = feed.length;
         feed.lastLength = feed.length;
@@ -229,7 +229,7 @@ class FeedClient extends SwarmClient {
             try {
                 let item = await new Promise((resolve, reject) =>
                     feed.get(i, (err, data) => err ? reject(err) : resolve(data)));
-                console.log(i, item);
+                //console.log(i, item);
                 this.emit('append', {me: this.key, from: this.longKey(feed), feed, 
                     index: i, data: item})
             }

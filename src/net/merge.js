@@ -8,6 +8,8 @@ class DocSync extends EventEmitter {
         this.docs = new automerge.DocSet();
         this.protocol = new automerge.Connection(this.docs, msg => this.sendMsg(msg));
         this.protocol.open();
+
+        this.docs.registerHandler((docId, doc) => this._onSetDoc(docId, doc));        
     }
 
     sendMsg(msg) {
@@ -29,6 +31,11 @@ class DocSync extends EventEmitter {
         if (!doc) throw new Error(`document missing: '${docName}'`);
         doc = this.docs.setDoc(docName, automerge.change(doc, operation));
         return doc;
+    }
+
+    _onSetDoc(docId, doc) {
+        //console.log('document modified:', docId, doc);
+        this.emit('change', {id: docId, doc});
     }
 }
 

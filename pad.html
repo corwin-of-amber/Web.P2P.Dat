@@ -8,16 +8,12 @@
     </head>
     <body>
         <div id="app">
-            <p2p.button-join channel="lobby"></p2p.button-join>
+            <p2p.button-join channel="doc1"></p2p.button-join>
             <p2p.list-of-peers ref="peers"></p2p.list-of-peers>
-            <!-- <reactive-editor ref="pad"></reactive-editor> -->
+            <reactive-editor ref="pad"></reactive-editor>
             <!-- <p2p.documents-raw ref="documents"></p2p.documents-raw> -->
-            
-                <p2p.list-of-messages ref="messages"></p2p.list-of-messages>
-                <p2p.message-input-box ref="send"></p2p.message-input-box> 
-            
         </div>
     </body>
 
-    <script>main_chat();</script>
+    <script>main_syncpad();</script>
 </html>

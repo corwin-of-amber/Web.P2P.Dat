@@ -208,13 +208,70 @@ Vue.component('p2p.message-input-box', {
     }
 });
 
+
+Vue.component('p2p.documents-raw', {
+    data: () => ({ docs: [] }),
+    template: `
+        <div>
+            <plain-list ref="list" v-slot="{item}">
+                <record-object :object="item"/>
+            </plain-list>
+        </div>`,
+    mounted() {
+        this.$root.$watch('clientState', (state) => {
+            this.unregister(); this.register(state.client);
+        });
+        this.$refs.list.items = this.docs;
+    },
+    methods: {
+        register(client) {
+            var update = ({id, doc}) =>{
+                this.setDoc(id, doc);
+            };
+            client.sync.on('change', update);
+            this._registered = {sync: client.sync, update};
+        },
+        unregister() {
+            if (this._registered) {
+                var {sync, update} = this._registered;
+                sync.removeListener('change', update);
+            }
+        },
+        setDoc(id, doc) {
+            /*for (let i = 0; i < this.docs.length; i++) {
+                if (this.docs[i].id === id) {
+                    this.docs.splice(i, 1, {id, doc});
+                    return;
+                }
+            }*/
+            this.docs.push({id, doc});
+        }
+    }
+});
+
+
+Vue.component('reactive-editor', {
+    template: `
+        <div></div>
+    `,
+    mounted() {
+        var CodeMirror = require('codemirror');
+        this.cm = new CodeMirror(this.$el);
+    }
+})
+
 /* generic display of objects (mainly for debugging) */
 Vue.component('record-object', {
     props: ['object'],
     template: `
-        <div>
-            <span v-for="(v,k) in object">{{k}}: {{v}}<br/></span>
-        </div>
+        <span :class="typeof(object) === 'object' ? 'object' : 'value'">
+            <template v-if="typeof(object) === 'object'">
+                <span v-for="(v,k) in object">
+                    {{k}}: <record-object :object="v"/><br/>
+                </span>
+            </template>
+            <template v-else>{{object}}</template>
+        </span>
     `
 });
 

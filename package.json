@@ -7,9 +7,10 @@
   "license": "ISC",
   "dependencies": {
     "@geut/discovery-swarm-webrtc": "github:geut/discovery-swarm-webrtc#sub-signalhub",
+    "automerge": "github:aslakhellesoy/automerge#b60e9485d02983230cdb77ca6d2056124b99767a",
+    "automerge-codemirror": "^4.0.5",
     "dat-swarm-defaults": "^1.0.2",
     "hypercore": "^7.5.0",
-    "hypermerge": "github:automerge/hypermerge",
     "moment": "^2.24.0",
     "random-access-file": "^2.1.3",
     "random-access-memory": "^3.1.1",
