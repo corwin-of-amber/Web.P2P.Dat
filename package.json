@@ -7,8 +7,8 @@
   "license": "ISC",
   "dependencies": {
     "@geut/discovery-swarm-webrtc": "github:geut/discovery-swarm-webrtc#sub-signalhub",
-    "automerge": "github:aslakhellesoy/automerge#b60e9485d02983230cdb77ca6d2056124b99767a",
-    "automerge-codemirror": "^4.0.5",
+    "automerge": "^0.11.0",
+    "automerge-codemirror": "github:corwin-of-amber/automerge-codemirror",
     "dat-swarm-defaults": "^1.0.2",
     "hypercore": "^7.5.0",
     "moment": "^2.24.0",
@@ -21,5 +21,8 @@
     "webrtc-swarm": "github:corwin-of-amber/webrtc-swarm",
     "websocket": "^1.0.29",
     "wrtc": "^0.4.1"
+  },
+  "scripts": {
+    "build": "browserify hyper.js > hyper.bundle.js && mkdir -p dist && cp node_modules/codemirror/lib/codemirror.css dist/"
   }
 }

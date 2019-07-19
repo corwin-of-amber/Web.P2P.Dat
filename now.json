@@ -4,7 +4,7 @@
     "builds": [
         { "src": "*.bundle.js", "use": "@now/static"},
         { "src": "*.html", "use": "@now/static"},
-        { "src": "./lib/codemirror.css", "use": "@now/static" },
-        { "src": "src/ui/app.css", "use": "@now/static" }
+        { "src": "src/**/*.css", "use": "@now/static" },
+        { "src": "dist/**/*", "use": "@now/static" }
     ]
 }

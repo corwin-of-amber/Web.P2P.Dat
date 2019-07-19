@@ -54,9 +54,10 @@ async function createDocument() {
 }
 
 function connectDocument(client) {
-    var s1 = new SyncPad(app.vue.$refs.pad.cm, client.sync.docs);
+    if (client.pad) return;
+    if (!client.feed) client.create();
 
-    Object.assign(window, {s1});
+    client.pad = new SyncPad(app.vue.$refs.pad.cm, client.sync.docs);
 }
 
 function main_syncpad() {
@@ -64,20 +65,20 @@ function main_syncpad() {
     var c2 = new DocumentClient();
     
     c1.deferred.init.then(() => {
-        var created = false;
-        c1.swarm.webrtc.on('connection', () => {
-            if (!created && c1.swarm.webrtc.channels.get('doc1')) {
-                created = true;
-                c1.create();
+        app.vue.$refs.pad.cm.setValue('wait for it...');
 
-                app.vue.$refs.pad.cm.setValue('wait for it...');
+        c1.create();
 
-                setTimeout(() => connectDocument(c1), 5000);
+        c1.sync.docs.registerHandler((id) => {
+            if (!c1.pad && id === 'syncpad') {
+                setTimeout(() => connectDocument(c1), 500);
             }
         });
     });
 
     App.start().attach(c1);
+
+    Object.assign(window, {c1, c2, connectDocument});
 }
 
 
