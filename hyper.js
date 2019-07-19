@@ -44,14 +44,13 @@ async function createDocument() {
 
     c1.join('doc1'); //c2.join('doc1');
 
-    app.vue.$refs.pad.cm.setValue('wait for it...');
-
-    setTimeout(() => connectDocument(), 5000);
-
-    /*
     c1.sync.create('d1');
-    c1.sync.change('d1', d => { d.name = "meg"; d.cards = []; });*/
+    c1.sync.change('d1', d => { d.name = "meg"; d.cards = []; });
 }
+
+
+var {SyncPad} = require('./src/ui/syncpad');
+
 
 function connectDocument(client) {
     if (client.pad) return;
@@ -82,7 +81,6 @@ function main_syncpad() {
 }
 
 
-var {SyncPad} = require('./src/ui/syncpad');
 
 
 if (typeof process !== 'undefined' && process.versions.nw)
