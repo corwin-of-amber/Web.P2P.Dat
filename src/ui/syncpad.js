@@ -1,11 +1,11 @@
 
 const _ = require('lodash'),
-      automerge = require('automerge'),
-      automergeCodeMirror = require('automerge-codemirror');
+      automerge = require('automerge');
 
 
 
 class SyncPad {
+
     constructor(cm, docSet, opts={}) {
         this.cm = cm;
         this.docSet = docSet;
@@ -19,25 +19,23 @@ class SyncPad {
 
         cm.setValue(doc.text.join(''));
 
-        this.watch = new automergeCodeMirror.DocSetWatchableDoc(this.docSet, docId);
-        this.link = {codeMirror: this.cm, getText: d => d.text};
+        this.slot = new DocumentPathSlot(new DocumentSlot(docSet, docId), ['text']);
+        this._objectId = automerge.getObjectId(this.slot.get());
         this._actorId = automerge.getActorId(doc);
 
         // Synchronize CodeMirror -> Automerge
         this.cmHandler = (cm, change) => {
-            updateAutomergeDocSet(this.docSet, docId, this.link.getText, cm, change);
+            updateAutomergeDoc(this.slot, cm.getDoc(), change);
         };
 
         cm.on('change', this.cmHandler);
 
         // Synchronize Automerge -> CodeMirror
-        const links = new Set([this.link]);
-
         this.amHandler = _.debounce(newDoc => {
-            doc = updateCodeMirrorDocs(doc, newDoc, links, this._actorId);
+            doc = updateCodeMirrorDocs(doc, newDoc, this._objectId, this._actorId, cm.getDoc());
         }, debounce.wait, {maxWait: debounce.max});
 
-        this.watch.registerHandler(this.amHandler);
+        this.slot.docSlot.registerHandler(this.amHandler);
     }
 
     newDoc() {
@@ -47,31 +45,74 @@ class SyncPad {
 }
 
 
+/**
+ * A tiny auxiliary class that represents a document within its DocSet.
+ */
+class DocumentSlot {
+    constructor(docSet, docId) {
+        this.docSet = docSet;
+        this.docId = docId;
+    }
+
+    get() {
+        return this.docSet.getDoc(this.docId);
+    }
+
+    set(doc) {
+        this.docSet.setDoc(this.docId, doc);
+    }
+
+    registerHandler(callback) {
+        this.docSet.registerHandler((docId, doc) => {
+            if (docId === this.docId) callback(doc);
+        });
+    }
+}
+
+/**
+ * A tiny auxiliary class that represents an object contained in a document.
+ */
+class DocumentPathSlot {
+    constructor(docSlot, path=[]) {
+        this.docSlot = docSlot;
+        this.path = path;
+    }
+    
+    get() {
+        return this.getFrom(this.docSlot.get());
+    }
+
+    getFrom(doc) {
+        for (let prop of this.path) {
+            if (!doc) break;
+            doc = doc[prop];
+        }
+        return doc;
+    }
+
+    change(func) {
+        var doc = this.docSlot.get(),
+            newDoc = automerge.change(doc, doc => func(this.getFrom(doc)));
+        // only set if changed, to avoid re-triggering
+        if (newDoc !== doc)
+            this.docSlot.set(newDoc);  
+    }
+}
+
+
 /* The part that follows is based on automerge-codemirror.
  * (TODO send upstream)
  * https://github.com/aslakhellesoy/automerge-codemirror
  */
 
-function updateAutomergeDocSet(docSet, docId, getText, cm, change) {
-  var doc = docSet.getDoc(docId),
-      newDoc = updateAutomergeDoc(doc, getText, cm.getDoc(), change);
-  if (newDoc !== doc)
-    docSet.setDoc(docId, newDoc);  // only set if changed, to avoid re-triggering
-}
-
 function updateAutomergeDoc(
-  doc,
-  getText,
+  slot,
   codeMirrorDoc,
   editorChange
 ) {
-  if (editorChange.origin === 'automerge') {
-    return doc;
-  }
+  if (editorChange.origin === 'automerge') return;  // own change
 
-  return automerge.change(doc, draft => {
-    const text = getText(draft)
-    if (!text) return
+  slot.change(text => {
     const startPos = codeMirrorDoc.indexFromPos(editorChange.from)
 
     const removedLines = editorChange.removed || []
@@ -108,8 +149,9 @@ function diffForeign(oldDoc, newDoc, self) {
 function updateCodeMirrorDocs(
     oldDoc,
     newDoc,
-    links,
-    self
+    objectId,
+    self,
+    codeMirrorDoc
 ) {
   if (!oldDoc) {
     return newDoc
@@ -118,10 +160,7 @@ function updateCodeMirrorDocs(
   const diffs = diffForeign(oldDoc, newDoc, self)
 
   for (const d of diffs) {
-    if (d.type !== 'text') continue
-    const link = findLink(newDoc, links, d)
-    if (!link) continue
-    const codeMirrorDoc = link.codeMirror.getDoc()
+    if (!(d.type === 'text' && d.obj === objectId)) continue
 
     switch (d.action) {
       case 'insert': {
