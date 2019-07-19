@@ -128,7 +128,6 @@ class FeedClient extends SwarmClient {
         for (let key of info.have || []) {
             if (!this.localFeeds.some(x => this.longKey(x) === key))  // skip local
                 this.listen(key).then(feed => peer.share(feed));
-            // TODO: avoid multiple shares of same feed?
         }
     }
 
@@ -256,6 +255,7 @@ class Peer extends EventEmitter {
         this.bootstrap = this.protocol.feed(BOOTSTRAP_KEY);
         this.bootstrap.on('data', (msg) => this._onData(msg));
         this._index = 0;
+        this._shared = new WeakSet();  // feeds that have been shared
     }
     get id() {
         return this.protocol.id;
@@ -268,7 +268,10 @@ class Peer extends EventEmitter {
         this.emit('control', JSON.parse(msg.value));
     }
     share(feed) {
-        feed.replicate({stream: this.protocol, live: true});
+        if (!this._shared.has(feed)) {
+            this._shared.add(feed);
+            feed.replicate({stream: this.protocol, live: true});
+        }
     }
     publish(feeds) {
         if (feeds.length > 0) {
