@@ -22,6 +22,17 @@ class DocumentClient extends FeedClient {
             }
         });
     }
+
+    /**
+     * Drops remote feeds that contain only clock events without changes.
+     */
+    async _cleanup() {
+        var useless = (items) => items.every(d => d.docId && d.clock && !d.changes);
+        var stillUseful = Promise.all(this.remoteFeeds.map(async feed => {
+            if (!useless(await this._feedGetAll(feed))) return feed;
+        }));
+        this.remoteFeeds = (await stillUseful).filter(x => x);
+    }    
 }
 
 
@@ -80,6 +91,8 @@ function main_syncpad() {
     Object.assign(window, {c1, c2, connectDocument});
 }
 
+
+window.automerge = require('automerge');
 
 
 

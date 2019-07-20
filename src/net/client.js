@@ -1,3 +1,4 @@
+const _ = require('lodash');
 const signalhubws = require('signalhubws');
 const hypercore = require('hypercore'),
       protocol = require('hypercore-protocol');
@@ -226,8 +227,7 @@ class FeedClient extends SwarmClient {
 
         for (let i = from; i < to; i++) {
             try {
-                let item = await new Promise((resolve, reject) =>
-                    feed.get(i, (err, data) => err ? reject(err) : resolve(data)));
+                let item = await this._feedGet(feed, i);
                 //console.log(i, item);
                 this.emit('append', {me: this.key, from: this.longKey(feed), feed, 
                     index: i, data: item})
@@ -240,6 +240,29 @@ class FeedClient extends SwarmClient {
 
     onError(feed, e) {
         console.error('[feed error]', this.shortKey(feed), e);
+    }
+
+    _feedGet(feed, i) {
+        return new Promise((resolve, reject) =>
+            feed.get(i, (err, data) => err ? reject(err) : resolve(data)));
+    }
+
+    _feedGetAll(feed) {
+        return Promise.all(_.range(feed.length).map(i =>
+            this._feedGet(feed, i)
+        ));
+    }
+
+    async _dump(feeds) {
+        feeds = feeds || (this.localFeeds.concat(this.remoteFeeds));
+
+        var dump = {};
+
+        for (let feed of feeds) {
+            dump[this.shortKey(feed)] = await this._feedGetAll(feed);
+        }
+
+        return dump;
     }
 }
 
