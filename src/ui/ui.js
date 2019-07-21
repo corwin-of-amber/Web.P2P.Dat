@@ -24,35 +24,27 @@ Vue.component('p2p.list-of-peers', {
         });
     },
     methods: {
-        updatePeers(webrtc) {
-            this.$refs.list.items = getPeers(webrtc);
+        updatePeers(client) {
+            this.$refs.list.items = [...client.peers.keys()];
         },
         register(client) {
             client.deferred.init.then(() => {
-                var cb = () => this.updatePeers(client.swarm.webrtc);
-                client.swarm.webrtc.on('connection', cb);
-                client.swarm.webrtc.on('connection-closed', cb);
+                var cb = () => this.updatePeers(client);
+                client.on('peer-connect', cb);
+                client.on('peer-disconnect', cb);
                 cb();
-                this._registered = {webrtc: client.swarm.webrtc, cb};
+                this._registered = {client, cb};
             })
         },
         unregister() {
             if (this._registered) {
-                var {webrtc, cb} = this._registered;
-                webrtc.removeListener('connection', cb);
-                webrtc.removeListener('connection-closed', cb);
+                var {client, cb} = this._registered;
+                client.removeListener('peer-connect', cb);
+                client.removeListener('peer-disconnect', cb);
             }
         }
     }
 });
-
-function getPeers(webrtcSwarm) {
-    var l = [];
-    for (let [k, {peers}] of webrtcSwarm.channels) {
-        l.push(...peers.keys());
-    }
-    return l;
-}
 
 
 Vue.component('p2p.source-messages', {

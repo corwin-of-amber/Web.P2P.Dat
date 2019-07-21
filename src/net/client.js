@@ -18,7 +18,11 @@ const node_require = require, /* bypass browserify */
       wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('wrtc') : undefined;
 
 
-var BOOTSTRAP_KEY = Buffer.from('global key for public feeds :):)');
+const DEFAULT_APP_NAME = 'hyper-chat-example',
+      BOOTSTRAP_KEY = Buffer.from('global key for public feeds :):)'),
+      //DEFAULT_SERVERS = {hub: 'wss://amberhubws.herokuapp.com'};
+      //DEFAULT_SERVERS = {hub: 'wss://amberhubws.herokuapp.com'};
+      DEFAULT_SERVERS = {hub: 'ws://localhost:3300'};
 
 
 
@@ -27,6 +31,8 @@ class SwarmClient extends EventEmitter {
     constructor(opts) {
         super();
         this.opts = opts;
+        this.opts.servers = this.opts.servers || DEFAULT_SERVERS;
+        this.opts.appName = this.opts.appName || DEFAULT_APP_NAME;
         this.deferred = {init: deferred()};
 
         this.channels = new Set();
@@ -39,8 +45,8 @@ class SwarmClient extends EventEmitter {
 
     _init() {
         return new Promise((resolve, reject) => {
-            this.hub = //signalhubws('hyper-chat-example', ['wss://signalhubws.mauve.moe'], node_ws);
-                signalhubws('hyper-chat-example', ['wss://amberhubws.herokuapp.com'], node_ws);
+            this.hub =
+                signalhubws(DEFAULT_APP_NAME, [this.opts.servers.hub], node_ws);
 
             var id = this.swarm ? this.swarm.id : undefined;
 
@@ -52,6 +58,11 @@ class SwarmClient extends EventEmitter {
                 this._registerReconnect();
                 resolve(); this.emit('init');
             });
+
+            this.swarm.webrtc.on('connection', (peer, info) =>
+                this.emit('peer-connect', peer, info));
+            this.swarm.webrtc.on('connection-closed', (peer, info) =>
+                this.emit('peer-disconnect', peer, info));
 
             this.id = this.swarm.id.toString('hex');
             console.log(`me: %c${this.id}`, 'color: green;');
@@ -111,12 +122,14 @@ class FeedClient extends SwarmClient {
         this.remoteFeeds = [];
 
         this._listenPromises = new Map();
+
+        this.on('peer-disconnect', (peer, info) => this._removePeer(info.id));
     }
 
     _stream(info) {
         console.log('stream', info);
         try {
-            var peer = new Peer();
+            var peer = new Wire();
             this._populate(peer);
             this.peers.set(info.id, peer);
             return peer.protocol;
@@ -199,6 +212,10 @@ class FeedClient extends SwarmClient {
         }
     }
 
+    _removePeer(id) {
+        this.peers.delete(id);
+    }
+
     join(channel, withFeed=true) {
         if (withFeed && !this.feed) this.create();
 
@@ -271,7 +288,7 @@ class FeedClient extends SwarmClient {
  * Minimal peer object, contains a bootstrap feed to communicate
  * available feeds through the connection.
  */
-class Peer extends EventEmitter {
+class Wire extends EventEmitter {
     constructor(opts) {
         super();
         this.protocol = protocol(opts);
