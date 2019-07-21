@@ -11,16 +11,27 @@ class DocumentClient extends FeedClient {
         this._setupDoc();
     }
 
-    _setupDoc() {
+    async _setupDoc() {
         this.sync = new DocSync();
         this.sync.on('data', d => {
-            if (this.feed) this.feed.append(d);
+            var feed = d.changes ? this.feed : this.transientFeed;
+            if (feed) feed.append(d);
         });
         this.on('append', ev => {
             if (!this.localFeeds.includes(ev.feed)) {
                 this.sync.data(ev.data);
             }
         });
+    }
+
+    async _init() {
+        await super._init();
+        await this._initFeeds();
+    }
+
+    async _initFeeds() {
+        this.transientFeed = this.transientFeed ||
+            await this.create({}, {transitive: false}, false);
     }
 
     /**
@@ -75,15 +86,17 @@ function main_syncpad() {
     var c2 = new DocumentClient();
     
     c1.deferred.init.then(() => {
-        app.vue.$refs.pad.cm.setValue('wait for it...');
+        if (!c1.pad) {
+            app.vue.$refs.pad.cm.setValue('wait for it...');
 
-        c1.create();
+            c1.create();
 
-        c1.sync.docs.registerHandler((id) => {
-            if (!c1.pad && id === 'syncpad') {
-                setTimeout(() => connectDocument(c1), 500);
-            }
-        });
+            c1.sync.docs.registerHandler((id, doc) => {
+                if (!c1.pad && id === 'syncpad' && doc.text) {
+                    setTimeout(() => connectDocument(c1), 500);
+                }
+            });
+        }
     });
 
     App.start().attach(c1);

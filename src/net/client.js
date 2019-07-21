@@ -9,7 +9,8 @@ const ram = require('random-access-memory');
 
 const {EventEmitter} = require('events');
 
-const deferred = require('../core/deferred');
+const deferred = require('../core/deferred'),
+      options = require('../core/options');
 
 
 /* This can work in node as well, but currently requires a tiny patch to discovery-swarm-web */
@@ -20,9 +21,10 @@ const node_require = require, /* bypass browserify */
 
 const DEFAULT_APP_NAME = 'hyper-chat-example',
       BOOTSTRAP_KEY = Buffer.from('global key for public feeds :):)'),
-      //DEFAULT_SERVERS = {hub: 'wss://amberhubws.herokuapp.com'};
-      //DEFAULT_SERVERS = {hub: 'wss://amberhubws.herokuapp.com'};
-      DEFAULT_SERVERS = {hub: 'ws://localhost:3300'};
+      DEFAULT_SERVERS = {hub: 'wss://amberhubws.herokuapp.com'},
+      //DEFAULT_SERVERS = {hub: 'ws://localhost:3300'},
+      DEFAULT_FEED_OPTS = {valueEncoding: 'json'},
+      DEFAULT_FEED_META = {transitive: true};
 
 
 
@@ -139,34 +141,36 @@ class FeedClient extends SwarmClient {
 
     _control(peer, info) {
         console.log('control', this.shortKey(), peer.id, info);
-        for (let key of info.have || []) {
+        for (let entry of info.have || []) {
+            let {key, opts, meta} = entry;
             if (!this.localFeeds.some(x => this.longKey(x) === key))  // skip local
-                this.listen(key).then(feed => peer.share(feed));
+                this.listen(key, opts, meta).then(feed => peer.share(feed));
         }
     }
 
-    async create(key) {
-        var feed = this._mkfeed(key);
+    async create(opts, meta, asMaster) {
+        var feed = this._mkfeed(null, opts, meta);
 
-        if (!this.feed) {
+        if (asMaster || (!this.feed && !(asMaster === false))) {
             this.feed = feed;
         }
         this.localFeeds.push(feed);
 
         await this._waitForReady(feed);
-        this.publish([feed]);
+        this.publish([feed]);  // local feeds are published regardless of transitivity
+        return feed;
     }
 
-    listen(key) {
+    listen(key, opts, meta) {
         var v = this._listenPromises.get(key);
         if (!v) {
-            this._listenPromises.set(key, v = this._listen(key));
+            this._listenPromises.set(key, v = this._listen(key, opts, meta));
         }
         return v;
     }
 
-    _listen(key) {
-        var feed = this._mkfeed(key);
+    _listen(key, opts, meta) {
+        var feed = this._mkfeed(key, opts, meta);
 
         this.remoteFeeds.push(feed);
 
@@ -179,8 +183,9 @@ class FeedClient extends SwarmClient {
         }
     }
 
-    _mkfeed(key) {
-        var feed = hypercore(this.opts.storage, key, {valueEncoding: 'json'});
+    _mkfeed(key, opts, meta) {
+        var feed = hypercore(this.opts.storage, key, options(opts, DEFAULT_FEED_OPTS));
+        feed.meta = options(meta, DEFAULT_FEED_META);
 
         feed.on('ready', () =>
             console.log(`feed %c${this.shortKey(feed)}`, 'color: blue;'));
@@ -203,13 +208,10 @@ class FeedClient extends SwarmClient {
     _populate(peer) {
         peer.on('control', info => this._control(peer, info))
 
-        var feeds = this.localFeeds.concat(this.remoteFeeds);
-        if (feeds.length > 0) {
-            for (let feed of feeds) peer.share(feed);
+        let isTransitive = f => f.meta && f.meta.transitive;
 
-            var keys = feeds.map(x => this.longKey(x));
-            peer.control({have: keys});
-        }
+        var feeds = this.localFeeds.concat(this.remoteFeeds.filter(isTransitive));
+        peer.publish(feeds);
     }
 
     _removePeer(id) {
@@ -237,21 +239,18 @@ class FeedClient extends SwarmClient {
     }
 
     async onAppend(feed) {
-        //console.log("feed.append", this.shortKey(), this.shortKey(feed));
+        //console.log("feed.append", this.shortKey(), this.shortKey(feed), feed.length);
 
         var from = feed.lastLength, to = feed.length;
         feed.lastLength = feed.length;
 
         for (let i = from; i < to; i++) {
-            try {
-                let item = await this._feedGet(feed, i);
-                //console.log(i, item);
+            this._feedGet(feed, i).then(item => {
+                //console.log(this.shortKey(feed), i, item);
                 this.emit('append', {me: this.key, from: this.longKey(feed), feed, 
                     index: i, data: item})
-            }
-            catch (e) {
-                this.onError(feed, e);
-            }
+            })
+            .catch(e => this.onError(feed, e));
         }
     }
 
@@ -316,8 +315,10 @@ class Wire extends EventEmitter {
     publish(feeds) {
         if (feeds.length > 0) {
             for (let feed of feeds) this.share(feed);
-            var keys = feeds.map(x => x.key.toString('hex'));
-            this.control({have: keys});
+            var entries = feeds.map(x => ({
+                key: x.key.toString('hex'), meta: x.meta
+            }));
+            this.control({have: entries});
         }
     }
 }
