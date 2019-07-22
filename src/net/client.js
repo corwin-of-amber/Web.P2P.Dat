@@ -96,6 +96,25 @@ class SwarmClient extends EventEmitter {
         for (let chan of this.channels) this.join(chan)
     }
 
+    /**
+     * Finds the SimplePeer instance associated with a peer.
+     * @param {string|Uint8Array|Wire} id peer id, or a Wire instance
+     * @param {string} channel channel name; if omitted, looks in all channels
+     */
+    getPeer(id, channel=undefined) {
+        if (id.id) id = id.id;
+        if (typeof id !== 'string') id = id.toString('hex');
+
+        var channelMap = this.swarm.webrtc.channels,
+            channels = channel ? [channelMap.get(channel)].filter(x => x)
+                               : channelMap.values()
+
+        for (let chan of channels) {
+            var p = chan.swarm.remotes[id];
+            if (p) return p;
+        }
+    }
+
     _registerReconnect() {
         for (let s of this.hub.sockets) s.onclose = () => this.reconnect();
     }
@@ -131,7 +150,7 @@ class FeedClient extends SwarmClient {
     _stream(info) {
         console.log('stream', info);
         try {
-            var peer = new Wire();
+            var peer = new Wire({id: info.id});
             this._populate(peer);
             this.peers.set(info.id, peer);
             return peer.protocol;

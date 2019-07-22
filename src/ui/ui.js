@@ -230,14 +230,87 @@ Vue.component('p2p.documents-raw', {
             }
         },
         setDoc(id, doc) {
-            /*for (let i = 0; i < this.docs.length; i++) {
+            for (let i = 0; i < this.docs.length; i++) {
                 if (this.docs[i].id === id) {
                     this.docs.splice(i, 1, {id, doc});
                     return;
                 }
-            }*/
+            }
             this.docs.push({id, doc});
         }
+    }
+});
+
+
+const {ScreenShare} = require('../addons/share-screen');
+
+Vue.component('p2p.video-source', {
+    data: () => ({ streams: [] }),
+    template: `<span></span>`,
+    mounted() {
+        this.$root.$watch('clientState', (state) => {
+            this.unregister(); this.register(state.client);
+        });
+    },
+    methods: {
+        register(client) {
+            var onconnect = (peer, info) => {
+                console.warn('onconnect', peer, info);
+                client.getPeer(peer).on('stream', stream => {
+                    console.warn("received stream", peer.id, stream);
+                    this.streams.splice(0, Infinity, stream); // only store one?..
+                });
+            };
+            client.on('peer-connect', onconnect);
+            this._registered = {client, onconnect};
+        },
+        unregister() {
+            if (this._registered) {
+                var {client, onconnect} = this._registered;
+                client.removeListener('peer-connect', onconnect);
+            }
+        }
+    }
+});
+
+Vue.component('p2p.video-view', {
+    data: () => ({ streams: [] }),
+    template: `
+        <div class="p2p-video-view">
+            <template v-for="stream in streams">
+                <video-stream-view :stream="stream"/>
+            </template>
+        </div>
+    `,
+    components: {
+        'video-stream-view': {
+            props: ['stream'],
+            template: `
+                <div> -- {{stream}} --</div>
+            `,
+            mounted() {
+                console.warn('mounted', this.stream);
+                this.$watch('stream', (stream) => {
+                    this.$el.innerHTML = '';
+                    if (stream instanceof MediaStream) {
+                        this.$el.append(ScreenShare.receive(stream));
+                    }
+                }, {immediate: true});
+            }
+        }
+    }
+
+});
+
+Vue.component('p2p.video-chat', {
+    template: `
+        <div class="p2p-video-chat">
+            <p2p.video-source ref="source"/>
+            <p2p.video-view ref="view"/>
+        </div>
+    `,
+    mounted() {
+        this.$refs.view.streams = this.$refs.source.streams;
     }
 });
 

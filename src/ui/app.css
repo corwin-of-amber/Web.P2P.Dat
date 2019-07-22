@@ -5,3 +5,7 @@ span.object {
     padding: 2px;
     outline: 1px solid #eee;
 }
+
+.p2p-video-chat video {
+    max-width: 100%;
+}
