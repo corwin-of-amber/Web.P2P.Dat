@@ -87,37 +87,18 @@ function main_syncdoc() {
 var {SyncPad, DocumentSlot, DocumentPathSlot} = require('./src/ui/syncpad');
 
 
-function connectDocument(client) {
-    if (client.pad) return;
-    if (!client.feed) client.create();
-
-    var docSlot = new DocumentSlot(client.sync.docs, 'syncpad'),
-        slot = new DocumentPathSlot(docSlot, ['text']);
-
-    client.pad = new SyncPad(app.vue.$refs.pad.cm, slot);
-}
-
 function main_syncpad() {
     var c1 = new DocumentClient();
     var c2 = new DocumentClient();
-    
-    c1.deferred.init.then(() => {
-        if (!c1.pad) {
-            app.vue.$refs.pad.cm.setValue('wait for it...');
 
-            c1.create();
-
-            c1.sync.docs.registerHandler((id, doc) => {
-                if (!c1.pad && id === 'syncpad' && doc.text) {
-                    setTimeout(() => connectDocument(c1), 500);
-                }
-            });
-        }
-    });
+    var docSlot = new DocumentSlot(c1.sync.docs, 'syncpad'),
+        slot = new DocumentPathSlot(docSlot, ['text']);
 
     App.start().attach(c1);
 
-    Object.assign(window, {c1, c2, connectDocument});
+    c1.pad = new SyncPad(app.vue.$refs.pad.cm, slot);
+
+    Object.assign(window, {c1, c2});
 }
 
 

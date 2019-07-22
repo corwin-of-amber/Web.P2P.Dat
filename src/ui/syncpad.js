@@ -10,20 +10,32 @@ class SyncPad {
         this.cm = cm;
         this.slot = slot;
 
-        var debounce = {wait: (opts.debounce && opts.debounce.wait) || 50,
-                        max: (opts.debounce && opts.debounce.max) || 500};
+        var attempt = () => {
+            if (this.slot.get()) {
+                this.slot.docSlot.unregisterHandler(attempt);
+                this._formLink(opts);
+            }
+        };
+        this.slot.docSlot.registerHandler(attempt);
+        attempt();
+    }
 
+    _formLink(opts) {
         var doc = this.slot.docSlot.get() || this.slot.docSlot.create();
         if (!this.slot.get()) this.slot.set(new automerge.Text());
 
         this._objectId = automerge.getObjectId(this.slot.get());
         this._actorId = automerge.getActorId(doc);
 
+        var debounce = this._debounceOpts(opts);
+
+        var {cm, slot} = this;
+
         // Synchronize CodeMirror -> Automerge
-        cm.setValue(this.slot.get().join(''));
+        cm.setValue(slot.get().join(''));
 
         this.cmHandler = (cm, change) => {
-            updateAutomergeDoc(this.slot, cm.getDoc(), change);
+            updateAutomergeDoc(slot, cm.getDoc(), change);
         };
 
         cm.on('change', this.cmHandler);
@@ -32,16 +44,17 @@ class SyncPad {
         this.lastRev = doc;
 
         this.amHandler = _.debounce(newRev => {
-            updateCodeMirrorDocs(this.lastRev, newRev, this._objectId, this._actorId, cm.getDoc());
+            updateCodeMirrorDocs(this.lastRev, newRev, 
+                                 this._objectId, this._actorId, cm.getDoc());
             this.lastRev = newRev;
         }, debounce.wait, {maxWait: debounce.max});
 
-        this.slot.docSlot.registerHandler(this.amHandler);
+        slot.docSlot.registerHandler(this.amHandler);
     }
 
-    newDoc() {
-        var doc = automerge.init();
-        return automerge.change(doc, d => { d.text = new automerge.Text(); });
+    _debounceOpts(opts) {
+        return {wait: (opts.debounce && opts.debounce.wait) || 50,
+                max:  (opts.debounce && opts.debounce.max)  || 500};
     }
 }
 
@@ -70,9 +83,16 @@ class DocumentSlot {
     }
 
     registerHandler(callback) {
-        this.docSet.registerHandler((docId, doc) => {
+        var h;
+        this.docSet.registerHandler(h = (docId, doc) => {
             if (docId === this.docId) callback(doc);
         });
+        callback._sloth = h; // for unregister
+    }
+
+    unregisterHandler(callback) {
+        if (callback._sloth)
+            this.docSet.unregisterHandler(callback._sloth);
     }
 }
 
