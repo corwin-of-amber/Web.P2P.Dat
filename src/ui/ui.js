@@ -61,7 +61,6 @@ Vue.component('p2p.source-messages', {
         this.$root.$watch('clientState', (state) => {
             this.unregister(); this.register(state.client);
         });
-        this.messages.push('(Welcome)');
     },
     methods: {
         register(client) {
@@ -83,6 +82,7 @@ Vue.component('p2p.list-of-messages', {
     template: `
         <div>
             <p2p.source-messages ref="source"/>
+            <p v-if="messages.length == 0">(Welcome)</p>
             <plain-list ref="list" v-slot="{item}">
                 <template v-if="typeof item === 'object'">
                     <message :message="item" v-if="item.message"/>

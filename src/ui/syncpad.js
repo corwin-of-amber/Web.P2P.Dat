@@ -6,24 +6,22 @@ const _ = require('lodash'),
 
 class SyncPad {
 
-    constructor(cm, docSet, opts={}) {
+    constructor(cm, slot, opts={}) {
         this.cm = cm;
-        this.docSet = docSet;
+        this.slot = slot;
 
-        var docId = opts.docId || 'syncpad',
-            debounce = {wait: (opts.debounce && opts.debounce.wait) || 50,
+        var debounce = {wait: (opts.debounce && opts.debounce.wait) || 50,
                         max: (opts.debounce && opts.debounce.max) || 500};
 
-        var doc = this.docSet.getDoc(docId) || this.newDoc();
-        this.docSet.setDoc(docId, doc);
+        var doc = this.slot.docSlot.get() || this.slot.docSlot.create();
+        if (!this.slot.get()) this.slot.set(new automerge.Text());
 
-        cm.setValue(doc.text.join(''));
-
-        this.slot = new DocumentPathSlot(new DocumentSlot(docSet, docId), ['text']);
         this._objectId = automerge.getObjectId(this.slot.get());
         this._actorId = automerge.getActorId(doc);
 
         // Synchronize CodeMirror -> Automerge
+        cm.setValue(this.slot.get().join(''));
+
         this.cmHandler = (cm, change) => {
             updateAutomergeDoc(this.slot, cm.getDoc(), change);
         };
@@ -31,8 +29,11 @@ class SyncPad {
         cm.on('change', this.cmHandler);
 
         // Synchronize Automerge -> CodeMirror
-        this.amHandler = _.debounce(newDoc => {
-            doc = updateCodeMirrorDocs(doc, newDoc, this._objectId, this._actorId, cm.getDoc());
+        this.lastRev = doc;
+
+        this.amHandler = _.debounce(newRev => {
+            updateCodeMirrorDocs(this.lastRev, newRev, this._objectId, this._actorId, cm.getDoc());
+            this.lastRev = newRev;
         }, debounce.wait, {maxWait: debounce.max});
 
         this.slot.docSlot.registerHandler(this.amHandler);
@@ -62,6 +63,12 @@ class DocumentSlot {
         this.docSet.setDoc(this.docId, doc);
     }
 
+    create() {
+        var doc = automerge.init();
+        this.set(doc);
+        return doc;
+    }
+
     registerHandler(callback) {
         this.docSet.registerHandler((docId, doc) => {
             if (docId === this.docId) callback(doc);
@@ -83,11 +90,18 @@ class DocumentPathSlot {
     }
 
     getFrom(doc) {
-        for (let prop of this.path) {
-            if (!doc) break;
-            doc = doc[prop];
-        }
-        return doc;
+        return this._getPath(doc, this.path);
+    }
+
+    set(value) {
+        var doc = this.docSlot.get(),
+            newDoc = automerge.change(doc, doc => {
+                var parent = this._getPath(doc, this.path.slice(0, -1));
+                parent[this.path.slice(-1)[0]] = value;
+            });
+        // only set if changed, to avoid re-triggering
+        if (newDoc !== doc)
+            this.docSlot.set(newDoc);
     }
 
     change(func) {
@@ -96,6 +110,14 @@ class DocumentPathSlot {
         // only set if changed, to avoid re-triggering
         if (newDoc !== doc)
             this.docSlot.set(newDoc);  
+    }
+
+    _getPath(obj, path) {
+        for (let prop of path) {
+            if (obj === undefined) break;
+            obj = obj[prop];
+        }
+        return obj;
     }
 }
 
@@ -153,9 +175,7 @@ function updateCodeMirrorDocs(
     self,
     codeMirrorDoc
 ) {
-  if (!oldDoc) {
-    return newDoc
-  }
+  if (!oldDoc) return;
 
   const diffs = diffForeign(oldDoc, newDoc, self)
 
@@ -176,21 +196,9 @@ function updateCodeMirrorDocs(
       }
     }
   }
-
-  return newDoc
 }
 
-function findLink(newDoc, links, op) {
-  for (const link of links) {
-    const text = link.getText(newDoc)
-    const textObjectId = automerge.getObjectId(text)
-    if (op.obj === textObjectId) {
-      return link
-    }
-  }
-  return null
-}
   
 
 
-module.exports = {SyncPad};
+module.exports = {SyncPad, DocumentSlot, DocumentPathSlot};

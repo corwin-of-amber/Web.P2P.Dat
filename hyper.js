@@ -38,7 +38,8 @@ class DocumentClient extends FeedClient {
      * Drops remote feeds that contain only clock events without changes.
      */
     async _cleanup() {
-        var useless = (items) => items.every(d => d.docId && d.clock && !d.changes);
+        var useless = (items) =>        /* clock may be `null` */
+            items.every(d => d.docId && (d.clock !== undefined) && !d.changes);
         var stillUseful = Promise.all(this.remoteFeeds.map(async feed => {
             if (!useless(await this._feedGetAll(feed))) return feed;
         }));
@@ -62,23 +63,38 @@ function main_chat() {
 
 
 async function createDocument() {
-    await c1.create(); //await c2.create();
+    await c1.create();
 
-    c1.join('doc1'); //c2.join('doc1');
+    c1.join('doc2');
 
     c1.sync.create('d1');
     c1.sync.change('d1', d => { d.name = "meg"; d.cards = []; });
 }
 
 
-var {SyncPad} = require('./src/ui/syncpad');
+function main_syncdoc() {
+    var c1 = new DocumentClient();
+
+    App.start().attach(c1);
+
+    window.addEventListener('beforeunload', () => {
+        c1.close();
+    });
+    Object.assign(window, {c1, createDocument});
+}
+
+
+var {SyncPad, DocumentSlot, DocumentPathSlot} = require('./src/ui/syncpad');
 
 
 function connectDocument(client) {
     if (client.pad) return;
     if (!client.feed) client.create();
 
-    client.pad = new SyncPad(app.vue.$refs.pad.cm, client.sync.docs);
+    var docSlot = new DocumentSlot(client.sync.docs, 'syncpad'),
+        slot = new DocumentPathSlot(docSlot, ['text']);
+
+    client.pad = new SyncPad(app.vue.$refs.pad.cm, slot);
 }
 
 function main_syncpad() {
@@ -113,7 +129,7 @@ if (typeof process !== 'undefined' && process.versions.nw)
     global.console = window.console;  // for debugging in nwjs
 
 if (typeof window !== 'undefined') {
-    Object.assign(window, {main_chat, main_syncpad});
+    Object.assign(window, {main_chat, main_syncdoc, main_syncpad});
 }
 /*
 else
