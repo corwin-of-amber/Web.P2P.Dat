@@ -10,14 +10,21 @@ class SyncPad {
         this.cm = cm;
         this.slot = slot;
 
-        var attempt = () => {
+        this._park = () => {
             if (this.slot.get()) {
-                this.slot.docSlot.unregisterHandler(attempt);
+                this.slot.docSlot.unregisterHandler(this._park);
+                this._park = null;
                 this._formLink(opts);
             }
         };
-        this.slot.docSlot.registerHandler(attempt);
-        attempt();
+        this.slot.docSlot.registerHandler(this._park);
+        this._park();
+    }
+
+    destroy() {
+        if (this._park) this.slot.docSlot.unregisterHandler(this._park);
+        if (this.amHandler) this.slot.docSlot.unregisterHandler(this.amHandler);
+        if (this.cmHandler) this.cm.off('change', this.cmHandler);
     }
 
     _formLink(opts) {

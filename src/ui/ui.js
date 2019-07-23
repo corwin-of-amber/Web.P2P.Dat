@@ -326,6 +326,7 @@ Vue.component('syncpad', {
     mounted() {
         this.$watch('slot', slot => {
             const {SyncPad} = require('./syncpad');
+            if (this.pad) this.pad.destroy();
             this.pad = new SyncPad(this.$refs.editor.cm, slot);
         });
     }
