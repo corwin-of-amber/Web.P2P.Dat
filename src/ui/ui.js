@@ -315,10 +315,19 @@ Vue.component('p2p.video-chat', {
 });
 
 
-Vue.component('reactive-editor', {
-    template: `
-        <div></div>
-    `,
+Vue.component('syncpad', {
+    data: () => ({ slot: undefined }),
+    template: `<codemirror ref="editor"/>`,
+    mounted() {
+        this.$watch('slot', slot => {
+            const {SyncPad} = require('./syncpad');
+            this.pad = new SyncPad(this.$refs.editor.cm, slot);
+        });
+    }
+})
+
+Vue.component('codemirror', {
+    template: `<div></div>`,
     mounted() {
         var CodeMirror = require('codemirror');
         this.cm = new CodeMirror(this.$el);
@@ -355,6 +364,7 @@ class App {
                 get client() { return client; }
             };
         update(); client.on('init', update);
+        return this;
     }
 }
 
