@@ -20,18 +20,23 @@ class DiscoverySwarmWeb  extends EventEmitter {
         this.stream = stream;
         this.hub = hub;
 
+        this.channels = new Set();
+
         this.webrtc = webrtcSwarm({id: id.toString('hex'), stream, hub});
+        this.webrtc.on('close', () => { this.channels.clear(); });
     }
     join(channelName, opts) {
         const channelNameString = channelName.toString('hex'),
-              subhub = subsignalhub(this.hub, `:${channelNameString}`);
+              subhub = subsignalhub(this.hub, `:${channelNameString}:`);
         this.webrtc.join(subhub, opts);
+        this.channels.add(channelName);
     }
     leave(channelName) {
         const channelNameString = channelName.toString('hex'),
-              subhub = subsignalhub(this.hub, `:${channelNameString}`);
+              subhub = subsignalhub(this.hub, `:${channelNameString}:`);
         // no DiscoverSwarmWebrtc.leave :(
         // TODO
+        this.channels.delete(channelName);
     }
     close() {
         this.webrtc.close();

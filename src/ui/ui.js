@@ -150,7 +150,7 @@ Vue.component('p2p.button-join', {
         async register(client) {
             await client.deferred.init;
             var update = () => this.clientChannels =
-                new Set(client.swarm.webrtc.channels.keys());
+                new Set(client.swarm.channels);
             update();
             client.swarm.webrtc.on('connection', update);
             client.swarm.webrtc.on('close', update);
