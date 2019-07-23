@@ -1,4 +1,5 @@
 const webrtcSwarm = require('@geut/discovery-swarm-webrtc'),
+      subsignalhub = require('sub-signalhub'),
       randomBytes = require('randombytes'),
       {EventEmitter} = require('events');
 
@@ -19,15 +20,18 @@ class DiscoverySwarmWeb  extends EventEmitter {
         this.stream = stream;
         this.hub = hub;
 
-        this.webrtc = webrtcSwarm({id, stream, hub});
+        this.webrtc = webrtcSwarm({id: id.toString('hex'), stream, hub});
     }
     join(channelName, opts) {
-        const channelNameString = channelName.toString('hex');
-        this.webrtc.join(channelNameString, opts);
+        const channelNameString = channelName.toString('hex'),
+              subhub = subsignalhub(this.hub, `:${channelNameString}`);
+        this.webrtc.join(subhub, opts);
     }
     leave(channelName) {
-        const channelNameString = channelName.toString('hex');
-        this.webrtc.leave(channelNameString);
+        const channelNameString = channelName.toString('hex'),
+              subhub = subsignalhub(this.hub, `:${channelNameString}`);
+        // no DiscoverSwarmWebrtc.leave :(
+        // TODO
     }
     close() {
         this.webrtc.close();
