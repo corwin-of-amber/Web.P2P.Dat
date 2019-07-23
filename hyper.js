@@ -63,13 +63,15 @@ function main_chat() {
 
 
 async function createDocument() {
-    await c1.create();
-
-    c1.join('doc2');
+    await c1.init();
+    if (!c1.feed) await c1.create();
 
     c1.sync.create('d1');
-    c1.sync.change('d1', d => { d.name = "meg"; d.cards = []; });
+    c1.sync.change('d1', d => { d.name = "meg"; d.cards = new automerge.Text(); });
 }
+
+
+var {DocumentSlot, DocumentPathSlot, DocumentObjectSlot} = require('./src/ui/syncpad');
 
 
 function main_syncdoc() {
@@ -77,14 +79,20 @@ function main_syncdoc() {
 
     App.start().attach(c1);
 
+    app.vue.$refs.documents.$on('select', (ev) => {
+        console.log('select', ev);
+        var docSlot = new DocumentSlot(c1.sync.docs, ev.docId),
+            slot = new DocumentObjectSlot(docSlot, automerge.getObjectId(ev.target.object));
+        app.vue.$refs.pad.slot = slot;
+        app.vue.$refs.pad.$parent.open = true;
+    });
+
     window.addEventListener('beforeunload', () => {
         c1.close();
     });
     Object.assign(window, {c1, createDocument});
 }
 
-
-var {DocumentSlot, DocumentPathSlot} = require('./src/ui/syncpad');
 
 
 async function createText() {

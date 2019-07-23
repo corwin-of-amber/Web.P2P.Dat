@@ -206,7 +206,8 @@ Vue.component('p2p.documents-raw', {
     template: `
         <div>
             <plain-list ref="list" v-slot="{item}">
-                <record-object :object="item"/>
+                <record-object :object="item"
+                               @select="selectDoc(item, $event)"/>
             </plain-list>
         </div>`,
     mounted() {
@@ -237,6 +238,10 @@ Vue.component('p2p.documents-raw', {
                 }
             }
             this.docs.push({id, doc});
+        },
+        selectDoc(item, event) {
+            this.$emit('select',
+                Object.assign({docId: item.id, doc: item.doc}, event));
         }
     }
 });
@@ -324,7 +329,7 @@ Vue.component('syncpad', {
             this.pad = new SyncPad(this.$refs.editor.cm, slot);
         });
     }
-})
+});
 
 Vue.component('codemirror', {
     template: `<div></div>`,
@@ -332,21 +337,53 @@ Vue.component('codemirror', {
         var CodeMirror = require('codemirror');
         this.cm = new CodeMirror(this.$el);
     }
-})
+});
+
+Vue.component('drawer', {
+    data: () => ({ open: false }),
+    template: `
+        <div class="drawer" :class="open ? 'open' : 'closed'">
+            <button @click="toggle()" class="toggle">◎</button>
+            <slot/>
+        </div>`,
+    methods: {
+        toggle() { this.open = !this.open; }
+    }
+});
+
+const automerge = require('automerge');
 
 /* generic display of objects (mainly for debugging) */
 Vue.component('record-object', {
     props: ['object'],
     template: `
-        <span :class="typeof(object) === 'object' ? 'object' : 'value'">
-            <template v-if="typeof(object) === 'object'">
+        <span class="record" :class="kind">
+            <template v-if="kind === 'text'">
+                <button @click="select()">Text</button>
+            </template>
+            <template v-else-if="kind === 'object'">
                 <span v-for="(v,k) in object">
-                    {{k}}: <record-object :object="v"/><br/>
+                    {{k}}: <record-object :object="v"
+                                          @select="$emit('select', $event)"/>
+                    <br/>
                 </span>
             </template>
             <template v-else>{{object}}</template>
         </span>
-    `
+    `,
+    computed: {
+        kind() {
+            var o = this.object;
+            if (o instanceof automerge.Text) return 'text'; // XXX
+            else if (typeof(o) === 'object') return 'object';
+            else return 'value';
+        }
+    },
+    methods: {
+        select() {
+            this.$emit('select', {target: this});
+        }
+    }
 });
 
 

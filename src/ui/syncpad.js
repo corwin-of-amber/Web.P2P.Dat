@@ -141,6 +141,37 @@ class DocumentPathSlot {
     }
 }
 
+/**
+ * A tiny auxiliary class that represents an object contained in a document
+ * referenced via its object identifier.
+ */
+class DocumentObjectSlot {
+    constructor(docSlot, objectId) {
+        this.docSlot = docSlot;
+        this.objectId = objectId;
+    }
+
+    get() {
+        return this.getFrom(this.docSlot.get());
+    }
+
+    getFrom(doc) {
+        return automerge.getObjectById(doc, this.objectId);
+    }
+
+    set(value) {
+        throw new Error('cannot set object by identifier only');
+    }
+
+    change(func) {
+        var doc = this.docSlot.get(),
+            newDoc = automerge.change(doc, doc => func(this.getFrom(doc)));
+        // only set if changed, to avoid re-triggering
+        if (newDoc !== doc)
+            this.docSlot.set(newDoc);  
+    }
+}
+
 
 /* The part that follows is based on automerge-codemirror.
  * (TODO send upstream)
@@ -220,5 +251,4 @@ function updateCodeMirrorDocs(
 
   
 
-
-module.exports = {SyncPad, DocumentSlot, DocumentPathSlot};
+module.exports = {SyncPad, DocumentSlot, DocumentPathSlot, DocumentObjectSlot};

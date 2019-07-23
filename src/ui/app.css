@@ -9,3 +9,22 @@ span.object {
 .p2p-video-chat video {
     max-width: 100%;
 }
+
+.drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100%;
+    background: #eeeeeeee;
+    transition: width 0.2s;
+}
+
+.drawer.open {
+    width: 50%;
+    border-left: 1px solid #888;
+}
+
+.drawer.closed {
+    width: 0;
+    overflow: hidden;
+}

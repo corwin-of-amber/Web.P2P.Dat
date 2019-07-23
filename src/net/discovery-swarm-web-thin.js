@@ -26,6 +26,8 @@ class DiscoverySwarmWeb  extends EventEmitter {
         this.webrtc.on('close', () => { this.channels.clear(); });
     }
     join(channelName, opts) {
+        if (this.channels.has(channelName)) return;  // ignore silently
+
         const channelNameString = channelName.toString('hex'),
               subhub = subsignalhub(this.hub, `:${channelNameString}:`);
         this.webrtc.join(subhub, opts);
