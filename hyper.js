@@ -12,10 +12,13 @@ class DocumentClient extends FeedClient {
     }
 
     async _setupDoc() {
+        this.docFeeds = {};
+
         this.sync = new DocSync();
         this.sync.on('data', d => {
-            var feed = d.changes ? this.feed : this.transientFeed;
+            var feed = d.changes ? this.docFeeds.changes : this.docFeeds.transient;
             if (feed) feed.append(d);
+            else console.warn('Automerge message lost;', d);
         });
         this.on('append', ev => {
             if (!this.localFeeds.includes(ev.feed)) {
@@ -30,8 +33,10 @@ class DocumentClient extends FeedClient {
     }
 
     async _initFeeds() {
-        this.transientFeed = this.transientFeed ||
-            await this.create({}, {transitive: false}, false);
+        var d = this.docFeeds;
+        d.changes = d.changes || await this.create({}, {}, false);
+        d.transient = d.transient ||
+                await this.create({}, {transitive: false}, false);
     }
 
     /**
@@ -64,7 +69,6 @@ function main_chat() {
 
 async function createDocument() {
     await c1.init();
-    if (!c1.feed) await c1.create();
 
     c1.sync.create('d1');
     c1.sync.change('d1', d => { d.name = "meg"; d.cards = new automerge.Text(); });
@@ -96,7 +100,8 @@ function main_syncdoc() {
 
 
 async function createText() {
-    await c1.create();
+    await c1.init();
+    //if (!c1.feed) await c1.create();
 
     var slot = app.vue.$refs.pad.slot;
     slot.docSlot.get() || slot.docSlot.create();
