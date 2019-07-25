@@ -1,9 +1,11 @@
-const assert = require('assert');
+const assert = require('assert'),
+      {EventEmitter} = require('events');
 
 
 
-class VideoOutgoing {
+class VideoOutgoing extends EventEmitter {
     constructor(stream) {
+        super();
         this.stream = stream;
     }
 
@@ -15,16 +17,23 @@ class VideoOutgoing {
 
     dispatch(client) {
         for (let id of client.peers.keys()) {
-            var peer = client.getPeer(id);
-            if (peer) peer.addStream(this.stream);
+            var peer = client.getPeer(id), ovs;
+            if (peer) {
+                peer._outgoingVideos = ovs = peer._outgoingVideos || new Set();
+                if (!ovs.has(this)) {
+                    peer.addStream(this.stream);
+                    ovs.add(this);
+                }
+            }
         }
     }
 
     embed(client, slot) {
         assert(!!client.id, "client not initialized");
         var objId = slot.set(new VideoIncoming(client.id));
-        client._outgoingVideos = client._outgoingVideos || {};
-        client._outgoingVideos[objId] = this;
+        client._outgoingVideos = client._outgoingVideos || new Map();
+        client._outgoingVideos.set(objId, this);
+        client.emit('video-outgoing', {video: this, objectId: objId});
         this.dispatch(client);
         return objId;
     }
@@ -33,6 +42,7 @@ class VideoOutgoing {
         for (let track of this.stream.getTracks()) {
             track.stop();
         }
+        this.emit('close');
     }
 }
 

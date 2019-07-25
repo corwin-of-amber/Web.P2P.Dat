@@ -250,7 +250,7 @@ Vue.component('p2p.documents-raw', {
 const {VideoIncoming} = require('../addons/video');
 
 Vue.component('p2p.video-source', {
-    props: ['peers'],
+    props: ['peers', 'objectId'],
     data: () => ({ streams: [] }),
     template: `<span></span>`,
     mounted() {
@@ -280,10 +280,10 @@ Vue.component('p2p.video-source', {
             if (this.isRelevant(id)) {
                 var peer = this._registered.client.getPeer(id);
                 if (peer) {
-                    this.streams.splice(0, Infinity, ...peer._remoteStreams);
+                    this._set(peer._remoteStreams);
                     peer.on('stream', stream => {
                         console.warn("received stream", id, stream);
-                        this.streams.splice(0, Infinity, stream); // only keep one?..
+                        this._set([stream]); // only keep one?..
                     });
                 }
             }
@@ -297,20 +297,23 @@ Vue.component('p2p.video-source', {
                 }
             }
         },
+        _set(streams) {
+            this.streams.splice(0, Infinity, ...streams);
+        },
         _rescanSelf(client) {
             if (this.isRelevant(client.id) && client._outgoingVideos) {
-                console.warn(client._outgoingVideos);
-                this.streams.splice(0, Infinity, ...
-                    Object.values(client._outgoingVideos).map(ov => ov.stream));
+                var ovs = client._outgoingVideos;
+                ovs = this.objectId ? [ovs.get(this.objectId)] : [...ovs.values()];
+                this._set(ovs.map(x => x && x.stream).filter(x => x));
             }
         }
     }
 });
 
-Vue.component('p2p.video-view', {
+Vue.component('video-widget', {
     data: () => ({ streams: [] }),
     template: `
-        <div class="p2p-video-view">
+        <div class="video-widget">
             <template v-for="stream in streams">
                 <video-stream-view :stream="stream"/>
             </template>
@@ -324,7 +327,6 @@ Vue.component('p2p.video-view', {
             `,
             mounted() {
                 this.$watch('stream', (stream) => {
-                    console.warn('mounted', this.stream);
                     this.$el.innerHTML = '';
                     if (stream instanceof MediaStream) {
                         this.$el.append(VideoIncoming.receive(stream));
@@ -336,12 +338,12 @@ Vue.component('p2p.video-view', {
 
 });
 
-Vue.component('p2p.video-chat', {
-    props: ['peers'],
+Vue.component('p2p.video-view', {
+    props: ['peers', 'objectId'],
     template: `
-        <div class="p2p-video-chat">
-            <p2p.video-source ref="source" :peers="peers"/>
-            <p2p.video-view ref="view"/>
+        <div class="p2p-video-view">
+            <p2p.video-source ref="source" :peers="peers" :objectId="objectId"/>
+            <video-widget ref="view"/>
         </div>
     `,
     mounted() {
@@ -393,7 +395,7 @@ Vue.component('record-object', {
                 <button @click="select()">Text</button>
             </template>
             <template v-else-if="kind === 'video'">
-                <p2p.video-chat :peers="[object.peerId]"/>
+                <p2p.video-view :peers="[object.peerId]" :objectId="objectId"/>
             </template>
             <template v-else-if="kind === 'object'">
                 <span v-for="(v,k) in object">
@@ -412,6 +414,9 @@ Vue.component('record-object', {
             else if (o && o.$type === 'VideoIncoming') return 'video'; // XXX
             else if (typeof(o) === 'object') return 'object';
             else return 'value';
+        },
+        objectId() {
+            return automerge.getObjectId(this.object);
         }
     },
     methods: {
