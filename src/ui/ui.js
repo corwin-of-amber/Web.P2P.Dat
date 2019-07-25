@@ -20,8 +20,8 @@ Vue.component('p2p.list-of-peers', {
     template: `<plain-list ref="list"/>`,
     mounted() {
         this.$root.$watch('clientState', (state) => {
-            this.unregister(); this.register(state.client);
-        });
+            this.unregister(); if (state) this.register(state.client);
+        }, {immediate: true});
     },
     methods: {
         updatePeers(client) {
@@ -59,8 +59,8 @@ Vue.component('p2p.source-messages', {
     },
     mounted() {
         this.$root.$watch('clientState', (state) => {
-            this.unregister(); this.register(state.client);
-        });
+            this.unregister(); if (state) this.register(state.client);
+        }, {immediate: true});
     },
     methods: {
         register(client) {
@@ -143,8 +143,8 @@ Vue.component('p2p.button-join', {
     },
     mounted() {
         this.$root.$watch('clientState', (state) => {
-            this.unregister(); this.register(state.client);
-        });
+            this.unregister(); if (state) this.register(state.client);
+        }, {immediate: true});
     },
     methods: {
         async register(client) {
@@ -212,8 +212,8 @@ Vue.component('p2p.documents-raw', {
         </div>`,
     mounted() {
         this.$root.$watch('clientState', (state) => {
-            this.unregister(); this.register(state.client);
-        });
+            this.unregister(); if (state) this.register(state.client);
+        }, {immediate: true});
         this.$refs.list.items = this.docs;
     },
     methods: {
@@ -247,32 +247,61 @@ Vue.component('p2p.documents-raw', {
 });
 
 
-const {ScreenShare} = require('../addons/share-screen');
+const {VideoIncoming} = require('../addons/video');
 
 Vue.component('p2p.video-source', {
+    props: ['peers'],
     data: () => ({ streams: [] }),
     template: `<span></span>`,
     mounted() {
         this.$root.$watch('clientState', (state) => {
-            this.unregister(); this.register(state.client);
+            this.unregister(); if (state) this.register(state.client);
+        }, {immediate: true});
+        this.$watch('peers', () => {
+            this.rescanPeers();
         });
     },
     methods: {
         register(client) {
-            var onconnect = (peer, info) => {
-                console.warn('onconnect', peer, info);
-                client.getPeer(peer).on('stream', stream => {
-                    console.warn("received stream", peer.id, stream);
-                    this.streams.splice(0, Infinity, stream); // only store one?..
-                });
-            };
+            var onconnect = (peer, info) => this.onPeerConnect(peer.id);
             client.on('peer-connect', onconnect);
             this._registered = {client, onconnect};
+            this.rescanPeers();
         },
         unregister() {
             if (this._registered) {
                 var {client, onconnect} = this._registered;
                 client.removeListener('peer-connect', onconnect);
+                this._registered = undefined;
+            }
+        },
+        isRelevant(id) { return !this.peers || this.peers.includes(id); },
+        onPeerConnect(id) {
+            if (this.isRelevant(id)) {
+                var peer = this._registered.client.getPeer(id);
+                if (peer) {
+                    this.streams.splice(0, Infinity, ...peer._remoteStreams);
+                    peer.on('stream', stream => {
+                        console.warn("received stream", id, stream);
+                        this.streams.splice(0, Infinity, stream); // only keep one?..
+                    });
+                }
+            }
+        },
+        rescanPeers() {
+            var client = this._registered && this._registered.client;
+            if (client) {
+                this._rescanSelf(client)
+                for (let id of client.peers.keys()) {
+                    this.onPeerConnect(id);
+                }
+            }
+        },
+        _rescanSelf(client) {
+            if (this.isRelevant(client.id) && client._outgoingVideos) {
+                console.warn(client._outgoingVideos);
+                this.streams.splice(0, Infinity, ...
+                    Object.values(client._outgoingVideos).map(ov => ov.stream));
             }
         }
     }
@@ -294,11 +323,11 @@ Vue.component('p2p.video-view', {
                 <div> -- {{stream}} --</div>
             `,
             mounted() {
-                console.warn('mounted', this.stream);
                 this.$watch('stream', (stream) => {
+                    console.warn('mounted', this.stream);
                     this.$el.innerHTML = '';
                     if (stream instanceof MediaStream) {
-                        this.$el.append(ScreenShare.receive(stream));
+                        this.$el.append(VideoIncoming.receive(stream));
                     }
                 }, {immediate: true});
             }
@@ -308,9 +337,10 @@ Vue.component('p2p.video-view', {
 });
 
 Vue.component('p2p.video-chat', {
+    props: ['peers'],
     template: `
         <div class="p2p-video-chat">
-            <p2p.video-source ref="source"/>
+            <p2p.video-source ref="source" :peers="peers"/>
             <p2p.video-view ref="view"/>
         </div>
     `,
@@ -362,6 +392,9 @@ Vue.component('record-object', {
             <template v-if="kind === 'text'">
                 <button @click="select()">Text</button>
             </template>
+            <template v-else-if="kind === 'video'">
+                <p2p.video-chat :peers="[object.peerId]"/>
+            </template>
             <template v-else-if="kind === 'object'">
                 <span v-for="(v,k) in object">
                     {{k}}: <record-object :object="v"
@@ -376,6 +409,7 @@ Vue.component('record-object', {
         kind() {
             var o = this.object;
             if (o instanceof automerge.Text) return 'text'; // XXX
+            else if (o && o.$type === 'VideoIncoming') return 'video'; // XXX
             else if (typeof(o) === 'object') return 'object';
             else return 'value';
         }

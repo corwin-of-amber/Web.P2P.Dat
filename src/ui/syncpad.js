@@ -4,8 +4,23 @@ const _ = require('lodash'),
 
 
 
+/**
+ * A synchronized editor that supports multi-client editing.
+ * Uses Automerge.Text for synchronization.
+ */
 class SyncPad {
-
+    /**
+     * Constructs a live link between a CodeMirror instance and a Text
+     * embedded in an Automerge document.
+     * @param {*} cm the CodeMirror instance
+     * @param {*} slot the slot (DocumentPathSlot/DocumentObjectSlot) of the
+     *   Text to connect
+     * @param {*} opts options object:
+     *   debounce.wait - the debounce time for incoming Automerge changes
+     *      (in ms, default 50)
+     *   debounce.max - maxWait for said debounce, after which queued changes
+     *      are flushed even if changes keep coming (in ms, default 500)
+     */
     constructor(cm, slot, opts={}) {
         this.cm = cm;
         this.slot = slot;
@@ -62,120 +77,6 @@ class SyncPad {
     _debounceOpts(opts) {
         return {wait: (opts.debounce && opts.debounce.wait) || 50,
                 max:  (opts.debounce && opts.debounce.max)  || 500};
-    }
-}
-
-
-/**
- * A tiny auxiliary class that represents a document within its DocSet.
- */
-class DocumentSlot {
-    constructor(docSet, docId) {
-        this.docSet = docSet;
-        this.docId = docId;
-    }
-
-    get() {
-        return this.docSet.getDoc(this.docId);
-    }
-
-    set(doc) {
-        this.docSet.setDoc(this.docId, doc);
-    }
-
-    create() {
-        var doc = automerge.init();
-        this.set(doc);
-        return doc;
-    }
-
-    registerHandler(callback) {
-        var h;
-        this.docSet.registerHandler(h = (docId, doc) => {
-            if (docId === this.docId) callback(doc);
-        });
-        callback._sloth = h; // for unregister
-    }
-
-    unregisterHandler(callback) {
-        if (callback._sloth)
-            this.docSet.unregisterHandler(callback._sloth);
-    }
-}
-
-/**
- * A tiny auxiliary class that represents an object contained in a document.
- */
-class DocumentPathSlot {
-    constructor(docSlot, path=[]) {
-        this.docSlot = docSlot;
-        this.path = path;
-    }
-    
-    get() {
-        return this.getFrom(this.docSlot.get());
-    }
-
-    getFrom(doc) {
-        return this._getPath(doc, this.path);
-    }
-
-    set(value) {
-        var doc = this.docSlot.get(),
-            newDoc = automerge.change(doc, doc => {
-                var parent = this._getPath(doc, this.path.slice(0, -1));
-                parent[this.path.slice(-1)[0]] = value;
-            });
-        // only set if changed, to avoid re-triggering
-        if (newDoc !== doc)
-            this.docSlot.set(newDoc);
-    }
-
-    change(func) {
-        var doc = this.docSlot.get(),
-            newDoc = automerge.change(doc, doc => func(this.getFrom(doc)));
-        // only set if changed, to avoid re-triggering
-        if (newDoc !== doc)
-            this.docSlot.set(newDoc);  
-    }
-
-    _getPath(obj, path) {
-        for (let prop of path) {
-            if (obj === undefined) break;
-            obj = obj[prop];
-        }
-        return obj;
-    }
-}
-
-/**
- * A tiny auxiliary class that represents an object contained in a document
- * referenced via its object identifier.
- */
-class DocumentObjectSlot {
-    constructor(docSlot, objectId) {
-        this.docSlot = docSlot;
-        this.objectId = objectId;
-    }
-
-    get() {
-        return this.getFrom(this.docSlot.get());
-    }
-
-    getFrom(doc) {
-        return automerge.getObjectById(doc, this.objectId);
-    }
-
-    set(value) {
-        throw new Error('cannot set object by identifier only');
-    }
-
-    change(func) {
-        var doc = this.docSlot.get(),
-            newDoc = automerge.change(doc, doc => func(this.getFrom(doc)));
-        // only set if changed, to avoid re-triggering
-        if (newDoc !== doc)
-            this.docSlot.set(newDoc);  
     }
 }
 
@@ -258,4 +159,4 @@ function updateCodeMirrorDocs(
 
   
 
-module.exports = {SyncPad, DocumentSlot, DocumentPathSlot, DocumentObjectSlot};
+module.exports = {SyncPad};

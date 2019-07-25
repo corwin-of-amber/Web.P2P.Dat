@@ -1,5 +1,6 @@
 const automerge = require('automerge'),
-    {EventEmitter} = require('events');
+      {EventEmitter} = require('events'),
+      {DocumentSlot} = require('../core/doc-slots');
 
 
 class DocSync extends EventEmitter {
@@ -23,7 +24,11 @@ class DocSync extends EventEmitter {
     create(docName) {
         var doc = automerge.init();
         this.docs.setDoc(docName, doc);
-        return doc;
+        return new DocumentSlot(this.docs, docName);
+    }
+
+    path(docName, path=[]) {
+        return new DocumentSlot(this.docs, docName).path(path);
     }
 
     change(docName, operation) {

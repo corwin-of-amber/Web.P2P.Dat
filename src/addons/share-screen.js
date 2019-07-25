@@ -11,13 +11,6 @@ class ScreenShare {
         return this.constructor.receive(stream);
     }
 
-    static receive(stream, play=true) {
-        var vid = document.createElement('video');
-        vid.srcObject = stream;
-        if (play) vid.play();
-        return vid;
-    }
-
     _obtainStream(conf) {
         conf = {audio: false, video: conf};
         return new Promise((resolve, reject) => {
