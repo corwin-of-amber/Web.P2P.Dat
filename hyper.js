@@ -75,7 +75,7 @@ async function createDocument() {
 }
 
 
-var {DocumentSlot, DocumentPathSlot, DocumentObjectSlot} = require('./src/ui/syncpad');
+var {DocumentSlot, DocumentPathSlot, DocumentObjectSlot} = require('./src/core/doc-slots');
 
 
 function main_syncdoc() {

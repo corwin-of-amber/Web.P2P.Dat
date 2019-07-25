@@ -376,7 +376,7 @@ Vue.component('drawer', {
     data: () => ({ open: false }),
     template: `
         <div class="drawer" :class="open ? 'open' : 'closed'">
-            <button @click="toggle()" class="toggle">◎</button>
+            <button @click="toggle()" class="toggle">×</button>
             <slot/>
         </div>`,
     methods: {

@@ -39,3 +39,18 @@ span.record.video div {
 .drawer .CodeMirror {
     min-width: 1px; /* CodeMirror does *not* like to be zero-size */
 }
+
+.drawer button.toggle {
+    border: none;
+    background: none;
+    padding: 1px 4px 3px 4px;
+}
+
+.drawer button.toggle:active,
+.drawer button.toggle:focus {
+    outline: none;
+}
+    
+.drawer button.toggle:active {
+    background: #00000040;
+}
