@@ -176,7 +176,6 @@ class FeedClient extends SwarmClient {
         this.localFeeds.push(feed);
 
         await this._waitForReady(feed);
-        this.publish([feed]);  // local feeds are published regardless of transitivity
         return feed;
     }
 
@@ -227,9 +226,11 @@ class FeedClient extends SwarmClient {
     _populate(peer) {
         peer.on('control', info => this._control(peer, info))
 
-        let isTransitive = f => f.meta && f.meta.transitive;
+        let isNonEmpty = f => f.length > 0,
+            isTransitive = f => f.meta && f.meta.transitive;
 
-        var feeds = this.localFeeds.concat(this.remoteFeeds.filter(isTransitive));
+        var feeds = this.localFeeds.filter(isNonEmpty)
+            .concat(this.remoteFeeds.filter(isTransitive));
         peer.publish(feeds);
     }
 
@@ -259,6 +260,8 @@ class FeedClient extends SwarmClient {
 
     async onAppend(feed) {
         //console.log("feed.append", this.shortKey(), this.shortKey(feed), feed.length);
+
+        if (feed.lastLength === 0 && feed.writable) this.publish([feed]);
 
         var from = feed.lastLength, to = feed.length;
         feed.lastLength = feed.length;
