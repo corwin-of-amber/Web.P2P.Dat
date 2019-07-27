@@ -262,7 +262,7 @@ Vue.component('p2p.documents-raw', {
 
 const {VideoIncoming} = require('../addons/video');
 
-Vue.component('p2p.video-source', {
+Vue.component('p2p.source-video', {
     props: ['peers', 'objectId'],
     data: () => ({ streams: [], activePeers: [], clientState: undefined }),
     template: `
@@ -334,32 +334,34 @@ Vue.component('p2p.video-source', {
                 onStream(stream) { this.collectStreams(); }
             },
             components: {
-                hook: {
-                    props: ['receiver', 'on'],
-                    template: `<span></span>`,
-                    mounted() {
-                        this.$watch('receiver', receiver => {
-                            this.unregister(); if (receiver) this.register(receiver); });
-                    },
-                    destroyed() { this.unregister(); },
-                    methods: {
-                        register(receiver) {
-                            var handler = stream => this.$emit(this.on, stream);
-                            receiver.on(this.on, handler);
-                            this._registered = {receiver, handler};
-                        },
-                        unregister() {
-                            if (this._registered) {
-                                var {receiver, handler} = this._registered;
-                                receiver.removeListener(this.on, handler);
-                            }
-                        }
-                    }
-                }
+                hook: eventHook()
             }
         }
     }
 });
+
+function eventHook() { return  {
+    props: ['receiver', 'on'],
+    template: `<span></span>`,
+    mounted() {
+        this.$watch('receiver', receiver => {
+            this.unregister(); if (receiver) this.register(receiver); });
+    },
+    destroyed() { this.unregister(); },
+    methods: {
+        register(receiver) {
+            var handler = stream => this.$emit(this.on, stream);
+            receiver.on(this.on, handler);
+            this._registered = {receiver, handler};
+        },
+        unregister() {
+            if (this._registered) {
+                var {receiver, handler} = this._registered;
+                receiver.removeListener(this.on, handler);
+            }
+        }
+    }
+}; }
 
 Vue.component('video-widget', {
     data: () => ({ streams: [] }),
@@ -393,7 +395,7 @@ Vue.component('p2p.video-view', {
     props: ['peers', 'objectId'],
     template: `
         <div class="p2p-video-view">
-            <p2p.video-source ref="source" :peers="peers" :objectId="objectId"/>
+            <p2p.source-video ref="source" :peers="peers" :objectId="objectId"/>
             <video-widget ref="view"/>
         </div>
     `,
