@@ -275,7 +275,9 @@ Vue.component('p2p.source-video', {
     mounted() {
         this.$root.$watch('clientState', (state) => {
             this.clientState = state;
+            this.rescanPeers();
         }, {immediate: true});
+        this.$watch('peers', () => this.rescanPeers());
         this.activePeers = this.$refs.source.peers;
         window.vs = this;
     },
@@ -293,7 +295,7 @@ Vue.component('p2p.source-video', {
             var client = this.clientState && this.clientState.client;
             if (client) {
                 this._set(this._rescanSelf(client).concat(...
-                    this.$refs.delegates.map(x => x.streams)));
+                    (this.$refs.delegates || []).map(x => x.streams)));
             }
         },
         _rescanSelf(client) {

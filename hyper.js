@@ -131,8 +131,9 @@ if (typeof process !== 'undefined' && process.versions.nw)
 
 if (typeof window !== 'undefined') {
     const automerge = require('automerge'),
-          video = require('./src/addons/video');
-    Object.assign(window, {video, automerge});
+          video = require('./src/addons/video'),
+          screen = require('./src/addons/share-screen');
+    Object.assign(window, {video, screen, automerge});
 
     Object.assign(window, {main_chat, main_syncdoc, main_syncpad});
 }
