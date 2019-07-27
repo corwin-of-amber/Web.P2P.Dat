@@ -16,8 +16,9 @@ Vue.component('plain-list', {
 });
 
 
-Vue.component('p2p.list-of-peers', {
-    template: `<plain-list ref="list"/>`,
+Vue.component('p2p.source-peers', {
+    data: () => ({ peers: [] }),
+    template: `<span></span>`,
     mounted() {
         this.$root.$watch('clientState', (state) => {
             this.unregister(); if (state) this.register(state.client);
@@ -25,7 +26,7 @@ Vue.component('p2p.list-of-peers', {
     },
     methods: {
         updatePeers(client) {
-            this.$refs.list.items = [...client.peers.keys()];
+            this.peers.splice(0, Infinity, ...client.peers.keys());
         },
         register(client) {
             client.deferred.init.then(() => {
@@ -46,6 +47,17 @@ Vue.component('p2p.list-of-peers', {
     }
 });
 
+Vue.component('p2p.list-of-peers', {
+    template: `
+        <div>
+            <p2p.source-peers ref="source"/>
+            <plain-list ref="list"/>
+        </div>
+    `,
+    mounted() {
+        this.$refs.list.items = this.$refs.source.peers;
+    }
+});
 
 Vue.component('p2p.source-messages', {
     data: () => ({ messages: [], messagesSorted: [] }),
@@ -158,9 +170,10 @@ Vue.component('p2p.button-join', {
         unregister() {
             this.clientChannels = null;
         },
-        onClick() {
+        async onClick() {
             var c = this._client;
             if (c) {
+                if (c.hub && !c.hub.opened) await c.reconnect();
                 c.join(this._channel, false);
                 this.pending = true;
                 setTimeout(() => this.pending = false, 5000);
@@ -251,60 +264,98 @@ const {VideoIncoming} = require('../addons/video');
 
 Vue.component('p2p.video-source', {
     props: ['peers', 'objectId'],
-    data: () => ({ streams: [] }),
-    template: `<span></span>`,
+    data: () => ({ streams: [], activePeers: [], clientState: undefined }),
+    template: `
+        <span>
+            <p2p.source-peers ref="source"/>
+            <peer-remote-streams v-for="id in relevantPeers" :key="id"
+                  :id="id" ref="delegates" @update="rescanPeers()"/>
+        </span>
+    `,
     mounted() {
         this.$root.$watch('clientState', (state) => {
-            this.unregister(); if (state) this.register(state.client);
+            this.clientState = state;
         }, {immediate: true});
-        this.$watch('peers', () => {
-            this.rescanPeers();
-        });
+        this.activePeers = this.$refs.source.peers;
+        window.vs = this;
+    },
+    computed: {
+        relevantPeers() {
+            return this.activePeers.filter(id => this.isRelevant(id));
+        }
     },
     methods: {
-        register(client) {
-            var onconnect = (peer, info) => this.onPeerConnect(peer.id);
-            client.on('peer-connect', onconnect);
-            this._registered = {client, onconnect};
-            this.rescanPeers();
-        },
-        unregister() {
-            if (this._registered) {
-                var {client, onconnect} = this._registered;
-                client.removeListener('peer-connect', onconnect);
-                this._registered = undefined;
-            }
-        },
         isRelevant(id) { return !this.peers || this.peers.includes(id); },
-        onPeerConnect(id) {
-            if (this.isRelevant(id)) {
-                var peer = this._registered.client.getPeer(id);
-                if (peer) {
-                    this._set(peer._remoteStreams);
-                    peer.on('stream', stream => {
-                        console.warn("received stream", id, stream);
-                        this._set([stream]); // only keep one?..
-                    });
-                }
-            }
-        },
-        rescanPeers() {
-            var client = this._registered && this._registered.client;
-            if (client) {
-                this._rescanSelf(client)
-                for (let id of client.peers.keys()) {
-                    this.onPeerConnect(id);
-                }
-            }
-        },
         _set(streams) {
             this.streams.splice(0, Infinity, ...streams);
+        },
+        rescanPeers() {
+            var client = this.clientState && this.clientState.client;
+            if (client) {
+                this._set(this._rescanSelf(client).concat(...
+                    this.$refs.delegates.map(x => x.streams)));
+            }
         },
         _rescanSelf(client) {
             if (this.isRelevant(client.id) && client._outgoingVideos) {
                 var ovs = client._outgoingVideos;
                 ovs = this.objectId ? [ovs.get(this.objectId)] : [...ovs.values()];
-                this._set(ovs.map(x => x && x.stream).filter(x => x));
+                return ovs.map(x => x && x.stream).filter(x => x);
+            }
+            else return [];
+        }
+    },
+    components: {
+        'peer-remote-streams': {
+            props: ['id'],
+            data: () => ({ clientState: undefined }),
+            template: `
+                <hook :receiver="current" on="stream" @stream="onStream"/>
+            `,
+            computed: {
+                current() { return this.getPeer(this.id); }
+            },
+            mounted() {
+                this.$root.$watch('clientState', (state) => {
+                    this.clientState = state;
+                    this.collectStreams();
+                }, {immediate: true});
+            },
+            methods: {
+                getPeer(id) {
+                    var client = this.clientState && this.clientState.client;
+                    return client && client.getPeer(id); 
+                },
+                collectStreams() {
+                    var peer = this.current;
+                    this.streams = peer ? peer._remoteStreams : [];
+                    this.$emit('update');
+                },
+                onStream(stream) { this.collectStreams(); }
+            },
+            components: {
+                hook: {
+                    props: ['receiver', 'on'],
+                    template: `<span></span>`,
+                    mounted() {
+                        this.$watch('receiver', receiver => {
+                            this.unregister(); if (receiver) this.register(receiver); });
+                    },
+                    destroyed() { this.unregister(); },
+                    methods: {
+                        register(receiver) {
+                            var handler = stream => this.$emit(this.on, stream);
+                            receiver.on(this.on, handler);
+                            this._registered = {receiver, handler};
+                        },
+                        unregister() {
+                            if (this._registered) {
+                                var {receiver, handler} = this._registered;
+                                receiver.removeListener(this.on, handler);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
