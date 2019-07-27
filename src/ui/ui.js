@@ -263,7 +263,7 @@ Vue.component('p2p.documents-raw', {
 const {VideoIncoming} = require('../addons/video');
 
 Vue.component('p2p.source-video', {
-    props: ['peers', 'objectId'],
+    props: ['peers', 'streamId'],
     data: () => ({ streams: [], activePeers: [], clientState: undefined }),
     template: `
         <span>
@@ -283,11 +283,12 @@ Vue.component('p2p.source-video', {
     },
     computed: {
         relevantPeers() {
-            return this.activePeers.filter(id => this.isRelevant(id));
+            return this.activePeers.filter(id => this.isRelevantPeer(id));
         }
     },
     methods: {
-        isRelevant(id) { return !this.peers || this.peers.includes(id); },
+        isRelevantPeer(id) { return !this.peers || this.peers.includes(id); },
+        isRelevantStream(id) { return !this.streamId || this.streamId === id; },
         _set(streams) {
             this.streams.splice(0, Infinity, ...streams);
         },
@@ -295,13 +296,14 @@ Vue.component('p2p.source-video', {
             var client = this.clientState && this.clientState.client;
             if (client) {
                 this._set(this._rescanSelf(client).concat(...
-                    (this.$refs.delegates || []).map(x => x.streams)));
+                    (this.$refs.delegates || []).map(x => 
+                        x.streams.filter(s => this.isRelevantStream(s.id)))));
             }
         },
         _rescanSelf(client) {
-            if (this.isRelevant(client.id) && client._outgoingVideos) {
+            if (this.isRelevantPeer(client.id) && client._outgoingVideos) {
                 var ovs = client._outgoingVideos;
-                ovs = this.objectId ? [ovs.get(this.objectId)] : [...ovs.values()];
+                ovs = this.streamId ? [ovs.get(this.streamId)] : [...ovs.values()];
                 return ovs.map(x => x && x.stream).filter(x => x);
             }
             else return [];
@@ -394,10 +396,10 @@ Vue.component('video-widget', {
 });
 
 Vue.component('p2p.video-view', {
-    props: ['peers', 'objectId'],
+    props: ['peers', 'streamId'],
     template: `
         <div class="p2p-video-view">
-            <p2p.source-video ref="source" :peers="peers" :objectId="objectId"/>
+            <p2p.source-video ref="source" :peers="peers" :streamId="streamId"/>
             <video-widget ref="view"/>
         </div>
     `,
@@ -450,7 +452,7 @@ Vue.component('record-object', {
                 <button @click="select()">Text</button>
             </template>
             <template v-else-if="kind === 'video'">
-                <p2p.video-view :peers="[object.peerId]" :objectId="objectId"/>
+                <p2p.video-view :peers="[object.peerId]" :streamId="object.streamId"/>
             </template>
             <template v-else-if="kind === 'object'">
                 <span v-for="(v,k) in object">

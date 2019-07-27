@@ -30,9 +30,9 @@ class VideoOutgoing extends EventEmitter {
 
     embed(client, slot) {
         assert(!!client.id, "client not initialized");
-        var objId = slot.set(new VideoIncoming(client.id));
+        var objId = slot.set(new VideoIncoming(client.id, this.stream.id));
         client._outgoingVideos = client._outgoingVideos || new Map();
-        client._outgoingVideos.set(objId, this);
+        client._outgoingVideos.set(this.stream.id, this);
         client.emit('video-outgoing', {video: this, objectId: objId});
         this.dispatch(client);
         return objId;
@@ -47,9 +47,10 @@ class VideoOutgoing extends EventEmitter {
 }
 
 class VideoIncoming {
-    constructor(peerId) {
+    constructor(peerId, streamId) {
         this.$type = 'VideoIncoming';
         this.peerId = peerId;
+        this.streamId = streamId;
     }
 
     static receive(stream, play=true) {
