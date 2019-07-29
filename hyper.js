@@ -135,6 +135,8 @@ if (typeof window !== 'undefined') {
           screen = require('./src/addons/share-screen');
     Object.assign(window, {video, screen, automerge});
 
+    Object.assign(window, require('./tests/monkey')); // for testing
+
     Object.assign(window, {main_chat, main_syncdoc, main_syncpad});
 }
 /*
