@@ -77,7 +77,8 @@ class DocumentPathSlot {
             newDoc = automerge.change(doc, doc => func(this.getFrom(doc)));
         // only set if changed, to avoid re-triggering
         if (newDoc !== doc)
-            this.docSlot.set(newDoc);  
+            this.docSlot.set(newDoc);
+        return newDoc;
     }
 
     _getPath(obj, path) {
@@ -116,7 +117,8 @@ class DocumentObjectSlot {
             newDoc = automerge.change(doc, doc => func(this.getFrom(doc)));
         // only set if changed, to avoid re-triggering
         if (newDoc !== doc)
-            this.docSlot.set(newDoc);  
+            this.docSlot.set(newDoc);
+        return newDoc;
     }
 }
 

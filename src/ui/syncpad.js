@@ -47,7 +47,6 @@ class SyncPad {
         if (!this.slot.get()) this.slot.set(new automerge.Text());
 
         this._objectId = automerge.getObjectId(this.slot.get());
-        this._actorId = automerge.getActorId(doc);
 
         var debounce = this._debounceOpts(opts);
 
@@ -57,17 +56,19 @@ class SyncPad {
         cm.setValue(slot.get().join(''));
 
         this.cmHandler = (cm, change) => {
-            updateAutomergeDoc(slot, cm.getDoc(), change);
+            this.lastRev = updateAutomergeDoc(slot, cm.getDoc(), change)
+                           || this.lastRev;
         };
 
         cm.on('change', this.cmHandler);
+        cm.on('beforeChange', () => this.amHandler.flush());
 
         // Synchronize Automerge -> CodeMirror
         this.lastRev = doc;
 
         this.amHandler = _.debounce(newRev => {
             updateCodeMirrorDocs(this.lastRev, newRev, 
-                                 this._objectId, this._actorId, cm.getDoc());
+                                 this._objectId, cm.getDoc());
             this.lastRev = newRev;
         }, debounce.wait, {maxWait: debounce.max});
 
@@ -93,7 +94,7 @@ function updateAutomergeDoc(
 ) {
   if (editorChange.origin === 'automerge') return;  // own change
 
-  slot.change(text => {
+  return slot.change(text => {
     const startPos = codeMirrorDoc.indexFromPos(editorChange.from)
 
     const removedLines = editorChange.removed || []
@@ -112,31 +113,16 @@ function updateAutomergeDoc(
   })
 }
 
-/**
- * A variant of Automerge.diff, skipping changes made by self.
- * Used by updateCodeMirrorDocs to avoid one's own changes re-applied to the
- * same CodeMirror instance.
- */
-function diffForeign(oldDoc, newDoc, self) {
-  const {Frontend, Backend} = automerge;
-  const oldState = Frontend.getBackendState(oldDoc)
-  const newState = Frontend.getBackendState(newDoc)
-  const changes = Backend.getChanges(oldState, newState).filter(c => c.actor !== self);
-  const [state, patch] = Backend.applyChanges(oldState, changes)
-  return patch.diffs
-}
-
 
 function updateCodeMirrorDocs(
     oldDoc,
     newDoc,
     objectId,
-    self,
     codeMirrorDoc
 ) {
   if (!oldDoc) return;
 
-  const diffs = diffForeign(oldDoc, newDoc, self)
+  const diffs = automerge.diff(oldDoc, newDoc)
 
   for (const d of diffs) {
     if (!(d.type === 'text' && d.obj === objectId)) continue
