@@ -137,6 +137,8 @@ if (typeof window !== 'undefined') {
 
     Object.assign(window, require('./tests/monkey')); // for testing
 
+    Object.assign(window, {fssync: require('./src/addons/fs-sync')});
+
     Object.assign(window, {main_chat, main_syncdoc, main_syncpad});
 }
 /*
