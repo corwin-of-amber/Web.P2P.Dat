@@ -19,7 +19,7 @@ const node_require = require, /* bypass browserify */
       wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('wrtc') : undefined;
 
 
-const DEFAULT_APP_NAME = 'hyper-chat-example',
+const DEFAULT_APP_NAME = 'dat-p2p-crowd',
       BOOTSTRAP_KEY = Buffer.from('global key for public feeds :):)'),
       DEFAULT_SERVERS = {hub: 'wss://amberhubws.herokuapp.com'},
       //DEFAULT_SERVERS = {hub: 'ws://localhost:3300'},
