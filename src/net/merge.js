@@ -38,13 +38,25 @@ class DocSync extends EventEmitter {
         return doc;
     }
 
+    snapshot(docName, filename) {
+        var saved = automerge.save(this.path(docName).get());
+        if (filename) {
+            var fs = (0 || require)('fs');
+            filename = filename.replace(/^file:\/\//, '');
+            fs.writeFileSync(filename, saved);
+        }
+        return saved;
+    }
+
     restore(docName, snapshot) {
         let mo = snapshot.match(/^file:\/\/(.*)$/);
         if (mo) {
             var fs = (0 || require)('fs');
             snapshot = fs.readFileSync(mo[1]);
         }
-        this.path(docName).set(automerge.load(snapshot));
+        var doc = automerge.load(snapshot);
+        this.path(docName).set(doc);
+        return doc;
     }
 
     _onSetDoc(docId, doc) {

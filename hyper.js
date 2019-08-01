@@ -84,17 +84,20 @@ function main_syncdoc() {
     App.start().attach(c1);
 
     app.vue.$refs.documents.$on('select', (ev) => {
-        console.log('select', ev);
         var docSlot = new DocumentSlot(c1.sync.docs, ev.docId),
             slot = new DocumentObjectSlot(docSlot, automerge.getObjectId(ev.target.object));
         app.vue.$refs.pad.slot = slot;
         app.vue.$refs.pad.$parent.open = true;
     });
 
+    const {DirectorySync} = require('./src/addons/fs-sync');
+
+    var ds = new DirectorySync(c1.sync.path('d1', ['files']), '/tmp/dirsync');
+
     window.addEventListener('beforeunload', () => {
         c1.close();
     });
-    Object.assign(window, {c1, createDocument});
+    Object.assign(window, {c1, ds, createDocument});
 }
 
 
@@ -132,12 +135,11 @@ if (typeof process !== 'undefined' && process.versions.nw)
 if (typeof window !== 'undefined') {
     const automerge = require('automerge'),
           video = require('./src/addons/video'),
-          screen = require('./src/addons/share-screen');
-    Object.assign(window, {video, screen, automerge});
+          screen = require('./src/addons/share-screen'),
+          fssync = require('./src/addons/fs-sync');
+    Object.assign(window, {automerge, video, screen, fssync});
 
     Object.assign(window, require('./tests/monkey')); // for testing
-
-    Object.assign(window, {fssync: require('./src/addons/fs-sync')});
 
     Object.assign(window, {main_chat, main_syncdoc, main_syncpad});
 }

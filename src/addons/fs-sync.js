@@ -1,7 +1,7 @@
 const node_require = global.require || (() => {}), /* bypass browserify */
 
       fs = node_require('fs'), path = node_require('path'),
-      mkdirp = node_require('mkdirp');
+      globAll = node_require('glob-all');
 
 
 
@@ -33,13 +33,32 @@ class DirectorySync {
         this.dir = dir;
     }
 
+    populate(files) {
+        var pats = files ? (typeof files === 'string' ? [files] : files) : ['**'],
+            found = globAll.sync(global.Array.from(pats), {cwd: this.dir})
+                    .map(relfn => ({fn: path.join(this.dir, relfn), relfn}));
+
+        const setContent = (obj, a) => {
+            obj.content = new automerge.Text();
+            obj.content.insertAt(0, ...Array.from(a));
+        };
+
+        this.slot.get() || this.slot.set([]);
+        this.slot.change(fileEntries => {
+            for (let {fn, relfn} of found) {
+                let index = fileEntries.push({filename: relfn}) - 1,
+                    text = fs.readFileSync(fn, 'utf-8');
+                setContent(fileEntries[index], text);
+            }
+        });
+    }
+
     save() {
         var files = this.slot.get();
 
         for (let {filename, content} of files) {
             try {
-                mkdirp.sync(this.indir(path.dirname(filename)));
-                fs.writeFileSync(this.indir(filename),
+                this._writeFile(filename, 
                     (content instanceof automerge.Text) ? content.join('')
                         : JSON.stringify(content));
             }
@@ -47,6 +66,12 @@ class DirectorySync {
                 console.error(`DirectorySync: write of '${filename}' failed;`, e);
             }
         }
+    }
+
+    _writeFile(filename, content) {
+        var fp = this.indir(filename);
+        fs.mkdirSync(path.dirname(fp), {recursive: true});
+        fs.writeFileSync(fp, content);
     }
 
     indir(p) {

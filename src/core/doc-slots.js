@@ -59,7 +59,8 @@ class DocumentPathSlot {
     }
 
     set(value) {
-        var doc = this.docSlot.get(), newValue,
+        var doc = this.docSlot.get() || this.docSlot.create(),
+            newValue,
             newDoc = automerge.change(doc, doc => {
                 var parent = this._getPath(doc, this.path.slice(0, -1)),
                     prop = this.path.slice(-1)[0];
