@@ -1,7 +1,7 @@
 const _ = require('lodash');
 const signalhubws = require('signalhubws');
 const hypercore = require('hypercore'),
-      protocol = require('hypercore-protocol');
+      Protocol = require('hypercore-protocol');
 
 const swarm = require('./discovery-swarm-web-thin');
 
@@ -153,7 +153,7 @@ class FeedClient extends SwarmClient {
             var peer = new Wire({id: info.id});
             this._populate(peer);
             this.peers.set(info.id, peer);
-            return peer.protocol;
+            return peer;
         }
         catch (e) { console.error(e); }
     }
@@ -309,17 +309,13 @@ class FeedClient extends SwarmClient {
  * Minimal peer object, contains a bootstrap feed to communicate
  * available feeds through the connection.
  */
-class Wire extends EventEmitter {
+class Wire extends Protocol {
     constructor(opts) {
-        super();
-        this.protocol = protocol(opts);
-        this.bootstrap = this.protocol.feed(BOOTSTRAP_KEY);
+        super(opts);
+        this.bootstrap = this.feed(BOOTSTRAP_KEY);
         this.bootstrap.on('data', (msg) => this._onData(msg));
         this._index = 0;
         this._shared = new WeakSet();  // feeds that have been shared
-    }
-    get id() {
-        return this.protocol.id;
     }
     control(info) {
         var index = this._index++;
@@ -331,7 +327,7 @@ class Wire extends EventEmitter {
     share(feed) {
         if (!this._shared.has(feed)) {
             this._shared.add(feed);
-            feed.replicate({stream: this.protocol, live: true});
+            feed.replicate({stream: this, live: true});
         }
     }
     publish(feeds) {
