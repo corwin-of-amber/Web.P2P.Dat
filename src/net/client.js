@@ -136,7 +136,7 @@ class FeedClient extends SwarmClient {
 
         this.peers = new Map();
 
-        this.crowd = new FeedCrowd({storage: ram});
+        this.crowd = new FeedCrowd({storage: ram, feed: {valueEncoding: 'json'}});
 
         this.crowd.on('feed:append', feed => this.onAppend(feed));
         this.crowd.on('feed:error', (feed, e) => this.onError(feed, e));

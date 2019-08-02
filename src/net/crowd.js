@@ -7,9 +7,11 @@ const options = require('../core/options');
 
 
 
-const BOOTSTRAP_KEY = Buffer.from('global key for public feeds :):)'),
-      DEFAULT_FEED_OPTS = {valueEncoding: 'json'},
-      DEFAULT_FEED_META = {transitive: true};
+const DEFAULT_OPTS = {
+        key: Buffer.from('global key for public feeds :):)'),
+        feed: {},
+        meta: {transitive: true}
+    };
 
 
 /**
@@ -20,7 +22,7 @@ class FeedCrowd extends EventEmitter {
 
     constructor(opts) {
         super();
-        this.opts = opts;
+        this.opts = options(opts, DEFAULT_OPTS);
 
         this.localFeeds = [];
         this.remoteFeeds = [];
@@ -30,7 +32,7 @@ class FeedCrowd extends EventEmitter {
     }
 
     replicate(opts) {
-        var wire = new Wire(opts)
+        var wire = new Wire(this.opts.key, opts)
             .on('control', info => this._control(wire, info))
             .on('close', () => this._replicated.delete(wire));
         this._replicated.add(wire);
@@ -62,23 +64,19 @@ class FeedCrowd extends EventEmitter {
         return this._waitForReady(feed);
     }
 
-    longKey(feed) {
-        return feed && feed.key && feed.key.toString('hex');
-    }
-
-    shortKey(feed) {
-        var key = this.longKey(feed);
-        return key && key.substring(0, 7);
-    }
+    longKey(feed) { return keyHex(feed); }
+    shortKey(feed) { return keyHexShort(feed); }
 
     _mkfeed(key, opts, meta) {
         var feed = hypercore(opts && opts.storage || this.opts.storage, 
                              key,
-                             options(opts, DEFAULT_FEED_OPTS));
-        feed.meta = options(meta, DEFAULT_FEED_META);
+                             options(opts, this.opts.feed));
+        feed.meta = options(meta, this.opts.meta);
 
-        feed.on('ready', () =>
-            console.log(`feed %c${this.shortKey(feed)}`, 'color: blue;'));
+        feed.on('ready', () => {
+            console.log(`feed %c${keyHexShort(feed)}`, 'color: blue;');
+            this.emit('feed:ready', feed);
+        });
 
         feed.on('error', e => this.emit('feed:error', feed, e));
         feed.on('append', () => { this._onAppend(feed); this.emit('feed:append', feed); });
@@ -100,7 +98,7 @@ class FeedCrowd extends EventEmitter {
         console.log('control', wire.id, info);
         for (let entry of info.have || []) {
             let {key, opts, meta} = entry;
-            if (!this.localFeeds.some(x => this.longKey(x) === key))  // skip local
+            if (!this.localFeeds.some(x => keyHex(x) === key))  // skip local
                 this.listen(key, opts, meta).then(feed => wire.share(feed));
         }
     }
@@ -124,44 +122,66 @@ class FeedCrowd extends EventEmitter {
         // publish owned feeds on first write
         if (feed.lastLength === 0 && feed.writable) this.publish([feed]);
     }
+
 }
 
 
 
 /**
- * Minimal peer object, contains a bootstrap feed to communicate
+ * Minimal peer protocol object, contains a metastream feed to communicate
  * available feeds through the connection.
  */
 class Wire extends Protocol {
-    constructor(opts) {
+
+    /**
+     * Constructs a feed-sharing connection protocol.
+     * @param {Buffer} key encryption key
+     * @param {object} opts options passed to Protocol
+     */
+    constructor(key, opts) {
         super(opts);
-        this.bootstrap = this.feed(BOOTSTRAP_KEY);
-        this.bootstrap.on('data', (msg) => this._onData(msg));
+        this.metastream = this.feed(key);
+        this.metastream.on('data', (msg) => this._onData(msg));
         this._index = 0;
         this._shared = new WeakSet();  // feeds that have been shared
     }
+
     control(info) {
         var index = this._index++;
-        this.bootstrap.data({index, value: JSON.stringify(info)});
+        this.metastream.data({index, value: JSON.stringify(info)});
     }
+
     _onData(msg) {
         this.emit('control', JSON.parse(msg.value));
     }
+
     share(feed) {
         if (!this._shared.has(feed)) {
             this._shared.add(feed);
             feed.replicate({stream: this, live: true});
         }
     }
+
     publish(feeds) {
         if (feeds.length > 0) {
             for (let feed of feeds) this.share(feed);
             var entries = feeds.map(x => ({
-                key: x.key.toString('hex'), meta: x.meta
+                key: keyHex(x), meta: x.meta
             }));
             this.control({have: entries});
         }
     }
+
+}
+
+
+function keyHex(feed) {
+    return feed && feed.key && feed.key.toString('hex');
+}
+
+function keyHexShort(feed) {
+    var key = keyHex(feed);
+    return key && key.substring(0, 7);
 }
 
 
