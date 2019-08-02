@@ -68,9 +68,11 @@ class FeedCrowd extends EventEmitter {
     shortKey(feed) { return keyHexShort(feed); }
 
     _mkfeed(key, opts, meta) {
-        var feed = hypercore(opts && opts.storage || this.opts.storage, 
-                             key,
-                             options(opts, this.opts.feed));
+        opts = options(opts, this.opts.feed);
+
+        var feed = hypercore(opts.storage || this.opts.storage, 
+                             key, opts);
+        feed.opts = opts;
         feed.meta = options(meta, this.opts.meta);
 
         feed.on('ready', () => {
@@ -166,7 +168,7 @@ class Wire extends Protocol {
         if (feeds.length > 0) {
             for (let feed of feeds) this.share(feed);
             var entries = feeds.map(x => ({
-                key: keyHex(x), meta: x.meta
+                key: keyHex(x), opts: x.opts, meta: x.meta
             }));
             this.control({have: entries});
         }

@@ -18,10 +18,11 @@ class DocumentClient extends FeedClient {
         this.sync.on('data', d => {
             var feed = d.changes ? this.docFeeds.changes : this.docFeeds.transient;
             if (feed) feed.append(d);
-            else console.warn('Automerge message lost;', d);
+            else console.warn('DocSync message lost;', d);
         });
         this.on('append', ev => {
-            if (!this.crowd.localFeeds.includes(ev.feed)) {
+            if (ev.feed.meta && ev.feed.meta.type === 'docsync' &&
+                !this.crowd.localFeeds.includes(ev.feed)) {
                 this.sync.data(ev.data);
             }
         });
@@ -33,10 +34,10 @@ class DocumentClient extends FeedClient {
     }
 
     async _initFeeds() {
-        var d = this.docFeeds;
-        d.changes = d.changes || await this.create({}, {}, false);
+        var d = this.docFeeds, type = 'docsync';
+        d.changes = d.changes || await this.create({}, {type}, false);
         d.transient = d.transient ||
-                await this.create({}, {transitive: false}, false);
+                await this.create({}, {type, transitive: false}, false);
     }
 
     /**
