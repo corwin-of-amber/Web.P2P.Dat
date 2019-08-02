@@ -21,7 +21,7 @@ class DocumentClient extends FeedClient {
             else console.warn('Automerge message lost;', d);
         });
         this.on('append', ev => {
-            if (!this.localFeeds.includes(ev.feed)) {
+            if (!this.crowd.localFeeds.includes(ev.feed)) {
                 this.sync.data(ev.data);
             }
         });
