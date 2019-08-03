@@ -26,6 +26,10 @@ class DocumentSlot {
         return (path && path.length) ? new DocumentPathSlot(this, path) : this;
     }
 
+    object(objectId) {
+        return new DocumentObjectSlot(this, objectId);
+    }
+
     registerHandler(callback) {
         var h;
         this.docSet.registerHandler(h = (docId, doc) => {

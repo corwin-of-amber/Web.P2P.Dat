@@ -81,5 +81,71 @@ class DirectorySync {
 }
 
 
+const through2 = require('through2'), streamToBlob = require('stream-to-blob'),
+      {keyHex} = require('../net/crowd'),
+      options = require('../core/options');
 
-module.exports = {DirectorySync};
+const DEFAULT_FILE_METADATA = {type: 'fileshare',
+                               mimeType: 'application/octet-stream'};
+
+
+class FileShare {
+    constructor(feedKey) {
+        this.$type = 'FileShare';
+        this.feedKey = feedKey;
+    }
+
+    static from(props) {
+        if (props.$type && props.$type !== 'FileShare')
+            console.warn(`expected a FileShare, got $type = ${props.$type}`);
+        return new FileShare(props.feedKey);
+    }
+
+    async receive(crowd) {
+        var blob = await this.receiveBlob(crowd);
+        if (blob) {
+            var object = document.createElement('object');
+            object.type = blob.type;
+            object.data = URL.createObjectURL(blob);
+            return object;
+        }
+    }
+
+    receiveBlob(crowd) {
+        var feed = crowd.feeds.find(f => keyHex(f) === this.feedKey);
+        if (feed) {
+            return this.constructor.receiveBlob(feed);
+        }
+    }
+
+    static async create(crowd, file_or_stream, metadata) {
+        metadata = options(metadata, DEFAULT_FILE_METADATA);
+
+        var feed = await crowd.create({valueEncoding: 'binary'}, metadata);
+        this.send(file_or_stream, feed);
+        return new FileShare(keyHex(feed));
+    }
+
+    static send(file_or_stream, feed) {
+        var instream = (typeof file_or_stream === 'string')
+            ? fs.createReadStream(file_or_stream) : file_or_stream;
+        var outstream = feed.createWriteStream();
+        // If this is a stream of Node.js `Buffer`s, some light touchup is needed
+        instream.pipe(FileShare._streamAdapter()).pipe(outstream);
+    }
+
+    static receiveBlob(feed) {
+        var instream = feed.createReadStream(),
+            mimeType = feed.meta && feed.meta.mimeType;
+        return streamToBlob(instream, mimeType);
+    }
+
+    static _streamAdapter() {
+        return through2((chunk, enc, cb) =>
+            { chunk._isBuffer = true; cb(null, chunk); });
+    }
+}
+
+
+
+module.exports = {DirectorySync, FileShare, streamToBlob};

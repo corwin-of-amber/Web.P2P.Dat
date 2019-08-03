@@ -31,6 +31,12 @@ class DocSync extends EventEmitter {
         return new DocumentSlot(this.docs, docName).path(path);
     }
 
+    object(docName, objectId) {
+        if (typeof objectId === 'object')
+            objectId = automerge.getObjectId(objectId);
+        return new DocumentSlot(this.docs, docName).object(objectId);
+    }
+
     change(docName, operation) {
         var doc = this.docs.getDoc(docName);
         if (!doc) throw new Error(`document missing: '${docName}'`);

@@ -47,6 +47,7 @@ span.record.video video {
     border: none;
     background: none;
     padding: 1px 4px 3px 4px;
+    height: 17px;
 }
 
 .drawer button.toggle:active,
@@ -56,4 +57,11 @@ span.record.video video {
     
 .drawer button.toggle:active {
     background: #00000040;
+}
+
+.drawer .CodeMirror,
+.drawer object {
+    display: block;
+    width: 100%;
+    height: calc(100% - 17px);
 }

@@ -22,7 +22,7 @@ class DocumentClient extends FeedClient {
         });
         this.on('append', ev => {
             if (ev.feed.meta && ev.feed.meta.type === 'docsync' &&
-                !this.crowd.localFeeds.includes(ev.feed)) {
+                !Object.values(this.docFeeds).includes(ev.feed)) {
                 this.sync.data(ev.data);
             }
         });
@@ -76,7 +76,8 @@ async function createDocument() {
 }
 
 
-var {DocumentSlot, DocumentPathSlot, DocumentObjectSlot} = require('./src/core/doc-slots');
+var {DocumentSlot, DocumentPathSlot, DocumentObjectSlot} = require('./src/core/doc-slots'),
+    {FileShare} = require('./src/addons/fs-sync');
 
 
 function main_syncdoc() {
@@ -84,11 +85,19 @@ function main_syncdoc() {
 
     App.start().attach(c1);
 
-    app.vue.$refs.documents.$on('select', (ev) => {
-        var docSlot = new DocumentSlot(c1.sync.docs, ev.docId),
-            slot = new DocumentObjectSlot(docSlot, automerge.getObjectId(ev.target.object));
-        app.vue.$refs.pad.slot = slot;
-        app.vue.$refs.pad.$parent.open = true;
+    const automerge = require('automerge');
+
+    app.vue.$refs.documents.$on('select', async (ev) => {
+        var slot = c1.sync.object(ev.docId, ev.target.object);
+            obj = slot.get();
+        if (obj instanceof automerge.Text) {
+            app.vue.$refs.preview.showText(slot);
+            app.vue.$refs.preview.$parent.open = true;
+        }
+        else if (obj.$type === 'FileShare') {
+            app.vue.$refs.preview.showFile(FileShare.from(obj));
+            app.vue.$refs.preview.$parent.open = true;
+        }
     });
 
     const {DirectorySync} = require('./src/addons/fs-sync');

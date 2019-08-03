@@ -295,9 +295,13 @@ Vue.component('p2p.source-video', {
         rescanPeers() {
             var client = this.clientState && this.clientState.client;
             if (client) {
-                this._set(this._rescanSelf(client).concat(...
-                    (this.$refs.delegates || []).map(x => 
-                        x.streams.filter(s => this.isRelevantStream(s.id)))));
+                var peers = this.peers || this.relevantPeers,
+                    avail = this.relevantPeers.map(id => client.getPeer(id));
+                
+                this._set([].concat(...peers.map(id => {
+                    var vi = new VideoIncoming(id, this.streamId);
+                    return vi.receive(client, avail);
+                })));
             }
         },
         _rescanSelf(client) {
@@ -409,6 +413,20 @@ Vue.component('p2p.video-view', {
 });
 
 
+Vue.component('p2p.file-object', {
+    data: () => ({ fileshare: undefined }),
+    template: `<span></span>`,
+    mounted() {
+        this.$watch('fileshare', async fileshare => {
+            var client = this.$root.clientState.client;
+            if (client && client.crowd) {
+                this.$el.innerHTML = '';
+                this.$el.append(await fileshare.receive(client.crowd));
+            }
+        })
+    }
+});
+
 Vue.component('syncpad', {
     data: () => ({ slot: undefined }),
     template: `<codemirror ref="editor"/>`,
@@ -441,6 +459,25 @@ Vue.component('drawer', {
     }
 });
 
+Vue.component('document-preview', {
+    data: () => ({ kind: '', object: undefined }),
+    template: `
+        <div>
+            <component :is="kind" ref="object"></component>
+        </div>
+    `,
+    methods: {
+        showText(slot) {
+            this.kind = 'syncpad';
+            process.nextTick(() => this.$refs.object.slot = slot);
+        },
+        showFile(fileshare) {
+            this.kind = 'p2p.file-object';
+            process.nextTick(() => this.$refs.object.fileshare = fileshare);
+        }
+    }
+});
+
 const automerge = require('automerge');
 
 /* generic display of objects (mainly for debugging) */
@@ -450,6 +487,9 @@ Vue.component('record-object', {
         <span class="record" :class="kind">
             <template v-if="kind === 'text'">
                 <button @click="select()">Text</button>
+            </template>
+            <template v-else-if="kind === 'file'">
+                <button @click="select()">File</button>
             </template>
             <template v-else-if="kind === 'video'">
                 <p2p.video-view :peers="[object.peerId]" :streamId="object.streamId"/>
@@ -468,6 +508,7 @@ Vue.component('record-object', {
         kind() {
             var o = this.object;
             if (o instanceof automerge.Text) return 'text'; // XXX
+            else if (o && o.$type === 'FileShare') return 'file'; // XXX
             else if (o && o.$type === 'VideoIncoming') return 'video'; // XXX
             else if (typeof(o) === 'object') return 'object';
             else return 'value';

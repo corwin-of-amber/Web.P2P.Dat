@@ -31,6 +31,8 @@ class FeedCrowd extends EventEmitter {
         this._replicated = new Set();
     }
 
+    get feeds() { return this.localFeeds.concat(this.remoteFeeds); }
+
     replicate(opts) {
         var wire = new Wire(this.opts.key, opts)
             .on('control', info => this._control(wire, info))
@@ -188,4 +190,4 @@ function keyHexShort(feed) {
 
 
 
-module.exports = {FeedCrowd}
+module.exports = {FeedCrowd, keyHex}

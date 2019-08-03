@@ -53,6 +53,27 @@ class VideoIncoming {
         this.streamId = streamId;
     }
 
+    receive(client, peers) {
+        return this._scanSelf(client).concat(...
+                 peers.map(x => this._scanPeer(x)));
+    }
+
+    isRelevantPeer(id) { return id === this.peerId; }
+    isRelevantStream(id) { return id === this.streamId; }
+
+    _scanSelf(client) {
+        if (this.isRelevantPeer(client.id) && client._outgoingVideos) {
+            var ovs = client._outgoingVideos;
+            ovs = this.streamId ? [ovs.get(this.streamId)] : [...ovs.values()];
+            return ovs.map(x => x && x.stream).filter(x => x);
+        }
+        else return [];
+    }
+    _scanPeer(peer) {
+        var remote = (peer && peer._remoteStreams) || [];
+        return remote.filter(s => this.isRelevantStream(s.id));
+    }
+
     static receive(stream, play=true) {
         var vid = document.createElement('video');
         vid.srcObject = stream;
