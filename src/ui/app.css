@@ -27,6 +27,7 @@ span.record.video video {
     height: 100%;
     background: #eeeeeeee;
     transition: width 0.2s;
+    overflow-y: auto;
 }
 
 .drawer.open {
@@ -63,5 +64,8 @@ span.record.video video {
 .drawer object {
     display: block;
     width: 100%;
+}
+.drawer .CodeMirror,
+.drawer object[type='application/pdf'] {
     height: calc(100% - 17px);
 }

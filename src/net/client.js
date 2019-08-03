@@ -19,11 +19,8 @@ const node_require = require, /* bypass browserify */
 
 
 const DEFAULT_APP_NAME = 'dat-p2p-crowd',
-      BOOTSTRAP_KEY = Buffer.from('global key for public feeds :):)'),
-      DEFAULT_SERVERS = {hub: 'wss://amberhubws.herokuapp.com'},
-      //DEFAULT_SERVERS = {hub: 'ws://localhost:3300'},
-      DEFAULT_FEED_OPTS = {valueEncoding: 'json'},
-      DEFAULT_FEED_META = {transitive: true};
+      DEFAULT_SERVERS = {hub: 'wss://amberhubws.herokuapp.com'};
+      //DEFAULT_SERVERS = {hub: 'ws://localhost:3300'};
 
 
 
@@ -194,6 +191,8 @@ class FeedClient extends SwarmClient {
 
     async onAppend(feed) {
         //console.log("feed.append", this.crowd.shortKey(), this.crowd.shortKey(feed), feed.length);
+
+        if (feed.opts && feed.opts.sparse) return;
 
         var from = feed.lastLength, to = feed.length;
         feed.lastLength = feed.length;

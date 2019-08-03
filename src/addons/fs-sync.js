@@ -121,7 +121,7 @@ class FileShare {
     static async create(crowd, file_or_stream, metadata) {
         metadata = options(metadata, DEFAULT_FILE_METADATA);
 
-        var feed = await crowd.create({valueEncoding: 'binary'}, metadata);
+        var feed = await crowd.create({valueEncoding: 'binary', sparse: true}, metadata);
         this.send(file_or_stream, feed);
         return new FileShare(keyHex(feed));
     }
@@ -134,7 +134,8 @@ class FileShare {
         instream.pipe(FileShare._streamAdapter()).pipe(outstream);
     }
 
-    static receiveBlob(feed) {
+    static async receiveBlob(feed) {
+        await this._updateFeed(feed);
         var instream = feed.createReadStream(),
             mimeType = feed.meta && feed.meta.mimeType;
         return streamToBlob(instream, mimeType);
@@ -143,6 +144,11 @@ class FileShare {
     static _streamAdapter() {
         return through2((chunk, enc, cb) =>
             { chunk._isBuffer = true; cb(null, chunk); });
+    }
+
+    static _updateFeed(feed) {
+        return new Promise(resolve =>
+            feed.update({ifAvailable: true}, resolve));
     }
 }
 
