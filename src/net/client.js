@@ -114,6 +114,20 @@ class SwarmClient extends EventEmitter {
         }
     }
 
+    getPeers(channel=undefined) {
+        var peers = [];
+
+        var channelMap = this.swarm.webrtc.channels,
+            channels = channel ? [channelMap.get(channel)].filter(x => x)
+                               : channelMap.values()
+
+        for (let chan of channels) {
+            peers.push(...Object.values(chan.swarm.remotes));
+        }
+
+        return peers;
+    }
+
     _registerReconnect() {
         for (let s of this.hub.sockets) s.onclose = () => this.reconnect();
     }

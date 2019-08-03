@@ -54,6 +54,7 @@ class VideoIncoming {
     }
 
     receive(client, peers) {
+        peers = peers || client.getPeers();
         return this._scanSelf(client).concat(...
                  peers.map(x => this._scanPeer(x)));
     }

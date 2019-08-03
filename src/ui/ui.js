@@ -288,29 +288,20 @@ Vue.component('p2p.source-video', {
     },
     methods: {
         isRelevantPeer(id) { return !this.peers || this.peers.includes(id); },
-        isRelevantStream(id) { return !this.streamId || this.streamId === id; },
         _set(streams) {
             this.streams.splice(0, Infinity, ...streams);
         },
         rescanPeers() {
             var client = this.clientState && this.clientState.client;
             if (client) {
-                var peers = this.peers || this.relevantPeers,
-                    avail = this.relevantPeers.map(id => client.getPeer(id));
-                
-                this._set([].concat(...peers.map(id => {
-                    var vi = new VideoIncoming(id, this.streamId);
-                    return vi.receive(client, avail);
-                })));
+                var peers = this.peers || this.relevantPeers;
+                this._set([].concat(...
+                    peers.map(id => this.receiveFrom(client, id))));
             }
         },
-        _rescanSelf(client) {
-            if (this.isRelevantPeer(client.id) && client._outgoingVideos) {
-                var ovs = client._outgoingVideos;
-                ovs = this.streamId ? [ovs.get(this.streamId)] : [...ovs.values()];
-                return ovs.map(x => x && x.stream).filter(x => x);
-            }
-            else return [];
+        receiveFrom(client, peerId) {
+            return new VideoIncoming(peerId, this.streamId)
+                   .receive(client);
         }
     },
     components: {
