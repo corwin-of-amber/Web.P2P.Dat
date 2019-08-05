@@ -49,6 +49,20 @@ class FeedCrowd extends EventEmitter {
 
         return this._waitForReady(feed);
     }
+
+    get(key) {
+        return this.getOrElse(key, () => {
+            throw new Error(`feed not found (key='${key.toString('hex')}')`);
+        });
+    }
+
+    getOrElse(key, default_or_function) {
+        var keyh = key.toString('hex'),
+            feed = this.feeds.find(feed => keyHex(feed) === keyh)
+        return feed ? this._waitForReady(feed) :
+                (typeof default_or_function === 'function')
+                 ? default_or_function(key) : default_or_function;
+    }
     
     listen(key, opts, meta) {
         var v = this._listenPromises.get(key);
@@ -91,6 +105,8 @@ class FeedCrowd extends EventEmitter {
     }
 
     _waitForReady(feed) {
+        if (feed.key) return Promise.resolve(feed);
+
         return new Promise((resolve, reject) => {
             feed.on('ready', () => {
                 feed.removeListener('error', reject); resolve(feed); });

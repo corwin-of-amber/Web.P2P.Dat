@@ -88,17 +88,42 @@ const through2 = require('through2'), streamToBlob = require('stream-to-blob'),
 const DEFAULT_FILE_METADATA = {type: 'fileshare',
                                mimeType: 'application/octet-stream'};
 
-
+/**
+ * Initializes a shared file entry. This object can be embedded in a JSON
+ * document (e.g. with Automerge) and recreated with FileShare.from.
+ * 
+ * Typically, a new FileShare instance is created with FileShare.create.
+ */
 class FileShare {
-    constructor(feedKey) {
+    /**
+     * (private consturctor)
+     * @param {string|Buffer|Uint8Array} feedKey key of containing feed
+     * @param {object} blocks range of blocks in the form {start, end}
+     */
+    constructor(feedKey, blocks={start: 0, end: -1}) {
         this.$type = 'FileShare';
         this.feedKey = feedKey;
+        this.blocks = blocks;
     }
 
     static from(props) {
         if (props.$type && props.$type !== 'FileShare')
             console.warn(`expected a FileShare, got $type = ${props.$type}`);
-        return new FileShare(props.feedKey);
+        return new FileShare(props.feedKey, props.blocks);
+    }
+
+    /**
+     * Creates a new feed and a file share entry from a file.
+     * @param {FeedCrowd} crowd the feed container to create the feed in
+     * @param {string|ReadStream} file_or_stream content
+     * @param {object} metadata new feed metadata
+     * @returns {FileShare} the new version entry
+     */
+    static async create(crowd, file_or_stream, metadata) {
+        metadata = options(metadata, DEFAULT_FILE_METADATA);
+
+        var feed = await crowd.create({valueEncoding: 'binary', sparse: true}, metadata);
+        return await this.send(file_or_stream, feed);
     }
 
     async receive(crowd) {
@@ -111,32 +136,40 @@ class FileShare {
         }
     }
 
-    receiveBlob(crowd) {
-        var feed = crowd.feeds.find(f => keyHex(f) === this.feedKey);
-        if (feed) {
-            return this.constructor.receiveBlob(feed);
-        }
+    async receiveBlob(crowd) {
+        var feed = await crowd.get(this.feedKey);
+        return this.constructor.receiveBlob(feed, this.blocks);
     }
 
-    static async create(crowd, file_or_stream, metadata) {
-        metadata = options(metadata, DEFAULT_FILE_METADATA);
-
-        var feed = await crowd.create({valueEncoding: 'binary', sparse: true}, metadata);
-        this.send(file_or_stream, feed);
-        return new FileShare(keyHex(feed));
+    /**
+     * Creates a new FileShare using the same feed. Typically used to upload
+     * a new version of the same file.
+     * @param {FeedCrowd} crowd the feed container (that was used in create()).
+     * @param {string|ReadStream} file_or_stream content
+     * @returns {FileShare} the new version entry
+     */
+    async recreate(crowd, file_or_stream) {
+        var feed = await crowd.get(this.feedKey);
+        return this.constructor.send(file_or_stream, feed);
     }
 
-    static send(file_or_stream, feed) {
+    static async send(file_or_stream, feed) {
+        var start = feed.length;
+        await this.upload(file_or_stream, feed);
+        return new FileShare(keyHex(feed), {start, end: feed.length});
+    }
+
+    static upload(file_or_stream, feed) {
         var instream = (typeof file_or_stream === 'string')
             ? fs.createReadStream(file_or_stream) : file_or_stream;
         var outstream = feed.createWriteStream();
         // If this is a stream of Node.js `Buffer`s, some light touchup is needed
-        instream.pipe(FileShare._streamAdapter()).pipe(outstream);
+        return stream_pipeline(instream, this._streamAdapter(), outstream);
     }
 
-    static async receiveBlob(feed) {
+    static async receiveBlob(feed, blocks) {
         await this._updateFeed(feed);
-        var instream = feed.createReadStream(),
+        var instream = feed.createReadStream(blocks),
             mimeType = feed.meta && feed.meta.mimeType;
         return streamToBlob(instream, mimeType);
     }
@@ -147,9 +180,22 @@ class FileShare {
     }
 
     static _updateFeed(feed) {
+        if (feed.writable) return Promise.resolve();
         return new Promise(resolve =>
             feed.update({ifAvailable: true}, resolve));
     }
+}
+
+
+/** stream.pipeline polyfill that also returns a Promise */
+function stream_pipeline(...streams) {
+    if (streams.length === 0) throw new Error('empty pipeline');
+    return new Promise((resolve, reject) => {
+        streams.reduce((inlet, outlet) => {
+            inlet.on('error', reject);
+            return inlet.pipe(outlet);
+        }).on('error', reject).on('finish', resolve);
+    });
 }
 
 
