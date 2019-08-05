@@ -16,6 +16,14 @@ class DocumentSlot {
         this.docSet.setDoc(this.docId, doc);
     }
 
+    change(func) {
+        var doc = this.get() || automerge.init(),
+            newDoc = automerge.change(doc, func);
+        if (newDoc !== doc)
+            this.set(newDoc);
+        return newDoc;
+    }
+
     create() {
         var doc = automerge.init();
         this.set(doc);
@@ -63,27 +71,24 @@ class DocumentPathSlot {
     }
 
     set(value) {
-        var doc = this.docSlot.get() || this.docSlot.create(),
-            newValue,
-            newDoc = automerge.change(doc, doc => {
-                var parent = this._getPath(doc, this.path.slice(0, -1)),
-                    prop = this.path.slice(-1)[0];
-                parent[prop] = value;
-                newValue = parent[prop];
-            });
-        // only set if changed, to avoid re-triggering
-        if (newDoc !== doc)
-            this.docSlot.set(newDoc);
-        return automerge.getObjectId(newValue);
+        var newValue;
+        this.docSlot.change(doc => {
+            var parent = this._getPath(doc, this.path.slice(0, -1)),
+                prop = this.path.slice(-1)[0];
+            if (typeof value === 'function')
+                value = value(parent[prop]);
+            if (value instanceof Promise) return;
+            parent[prop] = value;
+            newValue = parent[prop];
+        });
+        if (value instanceof Promise)  // async update
+            return value.then(value => this.set(value));
+        else
+            return automerge.getObjectId(newValue);
     }
 
     change(func) {
-        var doc = this.docSlot.get(),
-            newDoc = automerge.change(doc, doc => func(this.getFrom(doc)));
-        // only set if changed, to avoid re-triggering
-        if (newDoc !== doc)
-            this.docSlot.set(newDoc);
-        return newDoc;
+        return this.docSlot.change(doc => func(this.getFrom(doc)));
     }
 
     _getPath(obj, path) {
