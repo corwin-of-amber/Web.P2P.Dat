@@ -525,6 +525,42 @@ Vue.component('record-object', {
 });
 
 
+class Watch {
+    constructor(vue, prop, handler) {
+        this._registered = {unwatch: vue.$watch(prop, handler)};
+    }
+    destroy() {
+        this._registered.unwatch();
+    }
+}
+
+class PreviewPane {
+    constructor(app) {
+        this.app = app;
+        this.watch = undefined;
+    }
+
+    showObject(vm, slot) {
+        switch (vm.kind) {
+        case 'text':
+            this.app.vue.$refs.preview.showText(slot);
+            this.app.vue.$refs.preview.$parent.open = true;
+            break;
+        case 'file':
+            this.app.vue.$refs.preview.showFile(vm.coerced());
+            this.app.vue.$refs.preview.$parent.open = true;
+            break;
+        }
+    }
+
+    zoomObject(vm, slot) {
+        this.showObject(vm, slot);
+        if (this.watch) this.watch.destroy();
+        this.watch = new Watch(vm, 'object', () => this.showObject(vm, slot));
+    }
+}
+
+
 class App {
     constructor(dom) {
         this.vue = new Vue({
@@ -551,5 +587,5 @@ App.start = function (root) {
 
 
 if (typeof module !== 'undefined') {
-    module.exports = {App};
+    module.exports = {App, PreviewPane};
 }

@@ -100,6 +100,7 @@ class FeedCrowd extends EventEmitter {
         feed.on('append', () => { this._onAppend(feed); this.emit('feed:append', feed); });
         
         feed.lastLength = 0;
+        feed._new = true;
 
         return feed;
     }
@@ -140,7 +141,8 @@ class FeedCrowd extends EventEmitter {
 
     _onAppend(feed) {
         // publish owned feeds on first write
-        if (feed.lastLength === 0 && feed.writable) this.publish([feed]);
+        if (feed._new && feed.writable) 
+            { this.publish([feed]); feed._new = false; }
     }
 
 }

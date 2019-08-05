@@ -1,6 +1,6 @@
 const {FeedClient} = require('./src/net/client'),
       {DocSync} = require('./src/net/merge'),
-      {App} = require('./src/ui/ui');
+      {App, PreviewPane} = require('./src/ui/ui');
 
 
 class DocumentClient extends FeedClient {
@@ -76,29 +76,18 @@ async function createDocument() {
 }
 
 
-var {DocumentSlot, DocumentPathSlot, DocumentObjectSlot} = require('./src/core/doc-slots'),
-    {FileShare} = require('./src/addons/fs-sync');
+var {DocumentSlot, DocumentPathSlot} = require('./src/core/doc-slots');
 
 
 function main_syncdoc() {
     var c1 = new DocumentClient();
 
-    App.start().attach(c1);
-
-    const automerge = require('automerge');
+    var app = App.start().attach(c1),
+        preview = new PreviewPane(app);
 
     app.vue.$refs.documents.$on('select', async (ev) => {
-        switch (ev.target.kind) {
-        case 'text':
-            var slot = c1.sync.object(ev.docId, ev.target.object);
-            app.vue.$refs.preview.showText(slot);
-            app.vue.$refs.preview.$parent.open = true;
-            break;
-        case 'file':
-            app.vue.$refs.preview.showFile(ev.target.coerced());
-            app.vue.$refs.preview.$parent.open = true;
-            break;
-        }
+        var slot = c1.sync.object(ev.docId, ev.target.object);
+        preview.zoomObject(ev.target, slot);
     });
 
     const {DirectorySync} = require('./src/addons/fs-sync');
