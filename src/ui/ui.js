@@ -263,7 +263,7 @@ Vue.component('p2p.documents-raw', {
 const {VideoIncoming} = require('../addons/video');
 
 Vue.component('p2p.source-video', {
-    props: ['peers', 'streamId'],
+    props: ['videoincoming'],
     data: () => ({ streams: [], activePeers: [], clientState: undefined }),
     template: `
         <span>
@@ -282,26 +282,26 @@ Vue.component('p2p.source-video', {
         window.vs = this;
     },
     computed: {
+        peerId() { return this.videoincoming && this.videoincoming.peerId; },
         relevantPeers() {
             return this.activePeers.filter(id => this.isRelevantPeer(id));
         }
     },
     methods: {
-        isRelevantPeer(id) { return !this.peers || this.peers.includes(id); },
+        isRelevantPeer(id) { return !this.peerId || id === this.peerId },
         _set(streams) {
             this.streams.splice(0, Infinity, ...streams);
         },
         rescanPeers() {
             var client = this.clientState && this.clientState.client;
             if (client) {
-                var peers = this.peers || this.relevantPeers;
+                var peers = this.relevantPeers;
                 this._set([].concat(...
                     peers.map(id => this.receiveFrom(client, id))));
             }
         },
-        receiveFrom(client, peerId) {
-            return new VideoIncoming(peerId, this.streamId)
-                   .receive(client);
+        receiveFrom(client) {
+            return this.videoincoming.receive(client);
         }
     },
     components: {
@@ -391,10 +391,10 @@ Vue.component('video-widget', {
 });
 
 Vue.component('p2p.video-view', {
-    props: ['peers', 'streamId'],
+    props: ['videoincoming'],
     template: `
         <div class="p2p-video-view">
-            <p2p.source-video ref="source" :peers="peers" :streamId="streamId"/>
+            <p2p.source-video ref="source" :videoincoming="videoincoming"/>
             <video-widget ref="view"/>
         </div>
     `,
@@ -403,6 +403,8 @@ Vue.component('p2p.video-view', {
     }
 });
 
+
+const {FileShare} = require('../addons/fs-sync');
 
 Vue.component('p2p.file-object', {
     data: () => ({ fileshare: undefined }),
@@ -483,7 +485,7 @@ Vue.component('record-object', {
                 <button @click="select()">File</button>
             </template>
             <template v-else-if="kind === 'video'">
-                <p2p.video-view :peers="[object.peerId]" :streamId="object.streamId"/>
+                <p2p.video-view :videoincoming="coerced()"/>
             </template>
             <template v-else-if="kind === 'object'">
                 <span v-for="(v,k) in object">
@@ -511,6 +513,13 @@ Vue.component('record-object', {
     methods: {
         select() {
             this.$emit('select', {target: this});
+        },
+        coerced() {
+            switch (this.kind) {
+                case 'video': return VideoIncoming.from(this.object);
+                case 'file': return FileShare.from(this.object);
+                default: return this.object;
+            }
         }
     }
 });

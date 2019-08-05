@@ -53,6 +53,12 @@ class VideoIncoming {
         this.streamId = streamId;
     }
 
+    static from(props) {
+        if (props.$type && props.$type !== 'VideoIncoming')
+            console.warn(`expected a VideoIncoming, got $type = ${props.$type}`);
+        return new VideoIncoming(props.peerId, props.streamId);
+    }
+
     receive(client, peers) {
         peers = peers || client.getPeers();
         return this._scanSelf(client).concat(...

@@ -88,15 +88,16 @@ function main_syncdoc() {
     const automerge = require('automerge');
 
     app.vue.$refs.documents.$on('select', async (ev) => {
-        var slot = c1.sync.object(ev.docId, ev.target.object);
-            obj = slot.get();
-        if (obj instanceof automerge.Text) {
+        switch (ev.target.kind) {
+        case 'text':
+            var slot = c1.sync.object(ev.docId, ev.target.object);
             app.vue.$refs.preview.showText(slot);
             app.vue.$refs.preview.$parent.open = true;
-        }
-        else if (obj.$type === 'FileShare') {
-            app.vue.$refs.preview.showFile(FileShare.from(obj));
+            break;
+        case 'file':
+            app.vue.$refs.preview.showFile(ev.target.coerced());
             app.vue.$refs.preview.$parent.open = true;
+            break;
         }
     });
 
