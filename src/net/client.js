@@ -158,9 +158,10 @@ class FeedClient extends SwarmClient {
     _stream(info) {
         console.log('stream', info);
         try {
-            var wire = this.crowd.replicate({id: info.id});
+            var wire = this.crowd.replicate({id: info.id, timeout: false});
+            wire.on('error', e => this.onError(null, e));
             this.peers.set(info.id, wire);
-            return wire;
+            return wire.chunked();
         }
         catch (e) { console.error(e); }
     }
@@ -192,13 +193,13 @@ class FeedClient extends SwarmClient {
     async onAppend(feed) {
         //console.log("feed.append", this.crowd.shortKey(), this.crowd.shortKey(feed), feed.length);
 
-        if (feed.opts && feed.opts.sparse) return;
+        if (feed.opts && feed.opts.sparse && !feed.opts.eagerUpdate) return;
 
         var from = feed.lastLength, to = feed.length;
         feed.lastLength = feed.length;
 
         for (let i = from; i < to; i++) {
-            this._feedGet(feed, i).then(item => {
+            await this._feedGet(feed, i).then(item => {
                 //console.log(this.crowd.shortKey(feed), i, item);
                 this.emit('append', {me: this.key, from: this.crowd.longKey(feed), feed, 
                     index: i, data: item})
@@ -214,12 +215,6 @@ class FeedClient extends SwarmClient {
     _feedGet(feed, i) {
         return new Promise((resolve, reject) =>
             feed.get(i, (err, data) => err ? reject(err) : resolve(data)));
-    }
-
-    _feedGetAll(feed) {
-        return Promise.all(_.range(feed.length).map(i =>
-            this._feedGet(feed, i)
-        ));
     }
 }
 

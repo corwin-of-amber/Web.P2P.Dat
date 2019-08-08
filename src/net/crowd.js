@@ -1,9 +1,11 @@
 const hypercore = require('hypercore'),
-      Protocol = require('hypercore-protocol');
+      Protocol = require('hypercore-protocol'),
+      duplexify = require('duplexify');
 
 const {EventEmitter} = require('events');
 
-const options = require('../core/options');
+const options = require('../core/options'),
+      munch = require('../core/munch');
 
 
 
@@ -35,10 +37,10 @@ class FeedCrowd extends EventEmitter {
 
     replicate(opts) {
         var wire = new Wire(this.opts.key, opts)
+            .on('handshake', () => this._populate(wire))
             .on('control', info => this._control(wire, info))
             .on('close', () => this._replicated.delete(wire));
         this._replicated.add(wire);
-        this._populate(wire);
         return wire;
     }
 
@@ -192,6 +194,17 @@ class Wire extends Protocol {
             }));
             this.control({have: entries});
         }
+    }
+
+    /**
+     * Creates a "chunked" version of the replication stream, for sharing
+     * over connections with limits on message sizes (e.g. RTCDataChannel).
+     * @param {int} block_size maximum message size
+     */
+    chunked(block_size=65536) {
+        var chunked = duplexify(this, this.pipe(munch(block_size)));
+        this.on('handshake', () => chunked.emit('handshake'));
+        return chunked;
     }
 
 }
