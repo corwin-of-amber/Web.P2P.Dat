@@ -1,11 +1,21 @@
 const automerge = require('automerge'),
       {EventEmitter} = require('events'),
+      options = require('../core/options'),
       {DocumentSlot} = require('../core/doc-slots');
 
 
+
+const DEFAULT_OPTIONS = {
+    opsThreshold: 128  /* split messages with more than this many ops */
+};
+
+
 class DocSync extends EventEmitter {
-    constructor() {
+    constructor(opts) {
         super();
+
+        this.opts = options(opts, DEFAULT_OPTIONS);
+
         this.docs = new automerge.DocSet();
         this.protocol = new automerge.Connection(this.docs, msg => this.sendMsg(msg));
         this.protocol.open();
@@ -14,7 +24,8 @@ class DocSync extends EventEmitter {
     }
 
     sendMsg(msg) {
-        this.emit('data', msg);
+        for (let chunk of splitAutomergeChanges(msg, this.opts.opsThreshold))
+            this.emit('data', chunk);
     }
 
     data(msg) {
@@ -69,6 +80,43 @@ class DocSync extends EventEmitter {
         //console.log('document modified:', docId, doc);
         this.emit('change', {id: docId, doc});
     }
+}
+
+/**
+ * 
+ * @param {object} message an Automerge.Connection message
+ * @param {number} opsThreshold start a new message whenever the number of
+ *    operations exceeds this threshold.
+ *    Each chunk may contain multiple changes. If a single change contains
+ *    more than opsThreshold ops, it is still sent whole, occupying its own
+ *    chunk.
+ */
+function* splitAutomergeChanges(message, opsThreshold) {
+    if (!message.changes) { yield message; return; }
+
+    function adjustClock(clock, change) {
+        var override = {};
+        override[change.actor] = change.seq;
+        return Object.assign({}, clock, override);
+    }
+
+    function mkchunk() {
+        return Object.assign({}, message, {changes: []});
+    }
+
+    var chunk = mkchunk(), ops = 0;
+
+    for (let change of message.changes) {
+        if (ops > 0 && ops + change.ops.length > opsThreshold) {
+            yield chunk;
+            chunk = mkchunk(); ops = 0;
+        }
+        chunk.changes.push(change);
+        chunk.clock = adjustClock(chunk.clock, change);
+        ops += change.ops.length;
+    }
+
+    if (ops > 0) yield chunk;
 }
 
 /*

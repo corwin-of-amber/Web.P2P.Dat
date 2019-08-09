@@ -33,24 +33,25 @@ class DirectorySync {
         this.dir = dir;
     }
 
-    populate(files) {
+    async populate(files) {
         var pats = files ? (typeof files === 'string' ? [files] : files) : ['**'],
-            found = globAll.sync(global.Array.from(pats), {cwd: this.dir})
-                    .map(relfn => ({fn: path.join(this.dir, relfn), relfn}));
+            found = globAll.sync(global.Array.from(pats), {cwd: this.dir});
 
-        const setContent = (obj, a) => {
-            obj.content = new automerge.Text();
-            obj.content.insertAt(0, ...Array.from(a));
-        };
+        const munch = require('../core/munch');
 
         this.slot.get() || this.slot.set([]);
-        this.slot.change(fileEntries => {
-            for (let {fn, relfn} of found) {
-                let index = fileEntries.push({filename: relfn}) - 1,
-                    text = fs.readFileSync(fn, 'utf-8');
-                setContent(fileEntries[index], text);
-            }
-        });
+        for (let relfn of found) {
+            await stream_pipeline(
+                this._openFile(relfn),
+                munch(128),
+                this._createContentWriteStream(relfn));
+        }
+    }
+
+    replicate(newDir) {
+        var clone = new DirectorySync(this.slot, newDir);
+        clone.save();
+        return clone;
     }
 
     save() {
@@ -68,10 +69,35 @@ class DirectorySync {
         }
     }
 
+    _openFile(filename) {
+        return fs.createReadStream(this.indir(filename), {encoding: 'utf-8'});
+    }
+
     _writeFile(filename, content) {
         var fp = this.indir(filename);
         fs.mkdirSync(path.dirname(fp), {recursive: true});
         fs.writeFileSync(fp, content);
+    }
+
+    _createContentWriteStream(filename) {
+        var objId;
+        this.slot.change(fileEntries => {
+            var index = fileEntries.findIndex(e => e.filename == filename);
+            if (index < 0) index = fileEntries.push({filename}) - 1;
+            var obj = fileEntries[index];   // must access through index to modify
+            obj.content = new automerge.Text();
+            objId = automerge.getObjectId(obj);
+        });
+
+        return through2((chunk, enc, cb) => {
+            this.slot.change(fileEntries => {
+                var index = fileEntries.findIndex(e => automerge.getObjectId(e) === objId);
+                var obj = (index >= 0) && fileEntries[index];
+                if (obj && obj.content)
+                    obj.content.push(...chunk.toString('utf-8').split(''));
+            });
+            cb(null, chunk);
+        });
     }
 
     indir(p) {
