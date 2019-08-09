@@ -151,6 +151,7 @@ class FeedClient extends SwarmClient {
 
         this.crowd.on('feed:append', feed => this.onAppend(feed));
         this.crowd.on('feed:error', (feed, e) => this.onError(feed, e));
+        this.crowd.on('error',  e => this.onError(null, e));
 
         this.on('peer-disconnect', (peer, info) => this._removePeer(info.id));
     }
@@ -159,7 +160,6 @@ class FeedClient extends SwarmClient {
         console.log('stream', info);
         try {
             var wire = this.crowd.replicate({id: info.id, timeout: false});
-            wire.on('error', e => this.onError(null, e));
             this.peers.set(info.id, wire);
             return wire.chunked();
         }
