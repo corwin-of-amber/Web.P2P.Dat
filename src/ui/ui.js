@@ -294,10 +294,8 @@ Vue.component('p2p.source-video', {
         },
         rescanPeers() {
             var client = this.clientState && this.clientState.client;
-            if (client) {
-                var peers = this.relevantPeers;
-                this._set([].concat(...
-                    peers.map(id => this.receiveFrom(client, id))));
+            if (client && this.videoincoming) {
+                this._set(this.receiveFrom(client));
             }
         },
         receiveFrom(client) {
@@ -425,9 +423,9 @@ Vue.component('syncpad', {
     template: `<codemirror ref="editor"/>`,
     mounted() {
         this.$watch('slot', slot => {
-            const {SyncPad} = require('./syncpad');
+            const {AutomergeCodeMirror} = require('./automerge-codemirror');
             if (this.pad) this.pad.destroy();
-            this.pad = new SyncPad(this.$refs.editor.cm, slot);
+            this.pad = new AutomergeCodeMirror(this.$refs.editor.cm, slot);
         });
     }
 });

@@ -2,7 +2,7 @@
   "name": "dat-p2p-crowd",
   "version": "1.0.0",
   "description": "",
-  "main": "index.html",
+  "main": "doc.html",
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -29,5 +29,12 @@
   },
   "scripts": {
     "build": "browserify hyper.js > hyper.bundle.js && mkdir -p dist && cp node_modules/codemirror/lib/codemirror.css dist/"
+  },
+  "devDependencies": {
+    "@types/codemirror": "0.0.76",
+    "@types/lodash": "^4.14.136",
+    "@types/node": "^12.7.1",
+    "tsify": "^4.0.1",
+    "typescript": "^3.5.3"
   }
 }
