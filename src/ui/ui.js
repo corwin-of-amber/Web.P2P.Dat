@@ -9,7 +9,7 @@ Vue.component('plain-list', {
     template: `
         <ul class="plain-list">
             <li v-for="item in items">
-                <slot v-bind:item="item">{{item}}</slot>
+                <slot v-bind:item="item">{{item.toString()}}</slot>
             </li>
         </ul>
     `
@@ -125,6 +125,79 @@ Vue.component('p2p.list-of-messages', {
                     return bidiText.detectTextDir(this.message.message || '');
                 }
             }
+        }
+    }
+});
+
+const {keyHex, keyHexShort} = require('../net/crowd');
+
+Vue.component('p2p.source-feeds', {
+    data: () => ({ remote: [], stats: {} }),
+    template: `
+        <span>
+            <template v-for="feed in remote">
+                <hook :receiver="feed" on="download" @download="onDownload(feed)"/>
+            </template>
+        </span>
+    `,
+    mounted() {
+        this.$root.$watch('clientState', (state) => {
+            this.unregister(); if (state) this.register(state.client);
+        }, {immediate: true});
+    },
+    methods: {
+        register(client) {
+            this.remote = client.crowd.remoteFeeds;
+        },
+        unregister() {
+        },
+        onDownload(feed) {
+            var stats = feed.stats;
+            Vue.set(this.stats, keyHex(feed), stats);
+        }
+    },
+    components: {
+        hook: eventHook()
+    }
+});
+
+Vue.component('p2p.list-of-feeds', {
+    data: () => ({ feeds: [], stats: {} }),
+    template: `
+        <div class="p2p-list-of-feeds">
+            <p2p.source-feeds ref="source"/>
+            <plain-list ref="list" v-slot="{item}">
+                <span>{{keyHexShort(item)}} 
+                    <dl-progress :value="downloadProgress(item, stats[keyHex(item)])"/></span>
+            </plain-list>
+        </div>
+    `,
+    mounted() {
+        this.$refs.source.$watch('remote', (remote) => {
+            this.feeds = this.$refs.list.items = remote;
+        }, {immediate: true});
+        this.stats = this.$refs.source.stats;
+    },
+    methods: {
+        keyHex(feed) { return keyHex(feed); },
+        keyHexShort(feed) { return keyHexShort(feed); },
+        downloadProgress(feed, stats) {
+            return stats && {total: feed.length,
+                downloaded: stats.totals.downloadedBlocks,
+                bytes: stats.totals.downloadedBytes
+            };
+        }
+    },
+    components: {
+        'dl-progress': {
+            props: ["value"],
+            template: `
+                <span>
+                    <template v-if="value">
+                        {{value.downloaded}}/{{value.total}} ({{value.bytes}})
+                    </template>
+                </span>
+            `
         }
     }
 });
@@ -342,7 +415,8 @@ function eventHook() { return  {
     template: `<span></span>`,
     mounted() {
         this.$watch('receiver', receiver => {
-            this.unregister(); if (receiver) this.register(receiver); });
+            this.unregister(); if (receiver) this.register(receiver);
+        }, {immediate: true});
     },
     destroyed() { this.unregister(); },
     methods: {

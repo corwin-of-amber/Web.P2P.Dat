@@ -221,4 +221,4 @@ function keyHexShort(feed) {
 
 
 
-module.exports = {FeedCrowd, keyHex}
+module.exports = {FeedCrowd, keyHex, keyHexShort}

@@ -6,6 +6,10 @@ span.object {
     outline: 1px solid #eee;
 }
 
+.p2p-list-of-feeds {
+    font-size: 80%;
+}
+
 .p2p-video-view video {
     max-width: 100%;
 }
