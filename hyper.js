@@ -76,7 +76,7 @@ async function createDocument() {
 }
 
 
-var {DocumentSlot, DocumentPathSlot} = require('./src/core/doc-slots');
+var {DocumentSlot, DocumentPathSlot} = require('automerge-slots');
 
 
 function main_syncdoc() {

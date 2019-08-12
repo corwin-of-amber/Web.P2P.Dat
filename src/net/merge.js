@@ -1,7 +1,7 @@
 const automerge = require('automerge'),
       {EventEmitter} = require('events'),
-      options = require('../core/options'),
-      {DocumentSlot} = require('../core/doc-slots');
+      {DocumentSlot} = require('automerge-slots'),
+      options = require('../core/options');
 
 
 
