@@ -1,5 +1,4 @@
-const {TextOperation} = require('firepad-core');
-const {FirepadCore} = require('./firepad-core');
+const {FirepadCore, TextOperation} = require('firepad-core');
 
 const _ = require('lodash');
 
@@ -66,9 +65,8 @@ class SyncPad {
     }
 
     _push(operation) {
-        console.log(operation);
         this.slot.change(o => o.operations.push(JSON.stringify(operation)),
-            newRev => { console.log(newRev); this.amHandler.skipFwd(newRev); });
+            newRev => { this.amHandler.skipFwd(newRev); });
     }
 
     _pull(value) {
