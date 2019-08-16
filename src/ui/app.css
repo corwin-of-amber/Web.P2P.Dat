@@ -73,3 +73,7 @@ span.record.video video {
 .drawer object[type='application/pdf'] {
     height: calc(100% - 17px);
 }
+
+#editor-area .CodeMirror {
+    height: 40%;
+}

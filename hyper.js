@@ -101,30 +101,35 @@ function main_syncdoc() {
 }
 
 
+const {SyncPad} = require('./src/ui/syncpad');
 
 async function createText() {
     await c1.init();
     //if (!c1.feed) await c1.create();
 
     var slot = app.vue.$refs.pad.slot;
-    slot.docSlot.get() || slot.docSlot.create();
-    slot.set(new automerge.Text());
+    slot.get() || slot.set({operations: [], cursors: {}});
 }
 
-function main_syncpad() {
+
+async function main_syncpad() {
     var c1 = new DocumentClient();
     var c2 = new DocumentClient();
 
-    var docSlot = new DocumentSlot(c1.sync.docs, 'syncpad'),
-        slot = new DocumentPathSlot(docSlot, ['text']);
+    var slot = c1.sync.path('d1', ['firepad']);
 
     var app = App.start().attach(c1);
     app.vue.$refs.pad.slot = slot;
 
+    await c1.init();
+
+    var pad1 = new SyncPad(app.vue.$refs.pad.$refs.editor.cm, slot);
+    var pad2 = new SyncPad(app.vue.$refs.otherPad.$refs.editor.cm, slot);
+
     window.addEventListener('beforeunload', () => {
         c1.close();
     });
-    Object.assign(window, {c1, c2, createText});
+    Object.assign(window, {c1, c2, pad1, pad2, createText});
 }
 
 

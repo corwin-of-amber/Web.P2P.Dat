@@ -497,9 +497,9 @@ Vue.component('syncpad', {
     template: `<codemirror ref="editor"/>`,
     mounted() {
         this.$watch('slot', slot => {
-            const {AutomergeCodeMirror} = require('./automerge-codemirror');
+            //const {AutomergeCodeMirror} = require('./automerge-codemirror');
             if (this.pad) this.pad.destroy();
-            this.pad = new AutomergeCodeMirror(this.$refs.editor.cm, slot);
+            //this.pad = new AutomergeCodeMirror(this.$refs.editor.cm, slot);
         });
     }
 });
