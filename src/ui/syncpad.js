@@ -18,22 +18,23 @@ class SyncPad {
 
         this.firepad = new FirepadCore(editor, opts);
 
-        (this._park = slot.park()).then(obj => this._formLink(obj));
+        (this._park = slot.park()).then(() => this._formLink());
     }
 
     destroy() {
-        if (this._park) this._park.cancel();
+        if (this._park)     this._park.cancel();
         if (this.fpHandler) this.firepad.off('data', this.fpHandler);
         if (this.amFlush)   this.editor.off('beforeChange', this.amFlush);
         if (this.amHandler) this.amHandler.unregister();
     }
 
-    _formLink(obj) {
+    _formLink() {
         this._park = undefined;
         
         const slotFor = (obj) => this.slot.object(automerge.getObjectId(obj));
 
-        const subslots = {operations: slotFor(obj.operations),
+        const obj = this.slot.get(),
+              subslots = {operations: slotFor(obj.operations),
                           cursors:    slotFor(obj.cursors)};
 
         for (let op of obj.operations)
