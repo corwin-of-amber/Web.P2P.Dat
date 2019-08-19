@@ -231,25 +231,37 @@ Vue.component('p2p.button-join', {
             this.unregister(); if (state) this.register(state.client);
         }, {immediate: true});
     },
+    destroyed() { this.unregister(); },
     methods: {
         async register(client) {
             await client.deferred.init;
-            var update = () => this.clientChannels =
-                new Set(client.swarm.channels);
+            var update = () => this.update();
             update();
-            client.swarm.webrtc.on('connection', update);
-            client.swarm.webrtc.on('close', update);
+            client.hub.on('open', update);
+            client.hub.on('close', update);
+            client.swarm.on('open', update);
+            this._registered = {swarm: client.swarm, hub: client.hub, update};
         },
         unregister() {
             this.clientChannels = null;
+            if (this._registered) {
+                var {swarm, hub, update} = this._registered;
+                hub.removeListener('open', update);
+                hub.removeListener('close', update);
+                swarm.removeListener('open', update);
+                this._registered = undefined;
+            }
+        },
+        update() {
+            this.clientChannels = new Set(this._client.swarm.channels);
         },
         async onClick() {
             var c = this._client;
             if (c) {
+                this.pending = true;
                 if (c.hub && !c.hub.opened) await c.reconnect();
                 c.join(this._channel, false);
-                this.pending = true;
-                setTimeout(() => this.pending = false, 5000);
+                setTimeout(() => { this.update(); this.pending = false; }, 5000);
             }
         }
     }
