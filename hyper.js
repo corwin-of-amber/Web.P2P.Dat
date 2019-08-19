@@ -141,8 +141,9 @@ if (typeof window !== 'undefined') {
     const automerge = require('automerge'),
           video = require('./src/addons/video'),
           screen = require('./src/addons/share-screen'),
-          fssync = require('./src/addons/fs-sync');
-    Object.assign(window, {automerge, video, screen, fssync});
+          fssync = require('./src/addons/fs-sync'),
+          syncpad = require('./src/ui/syncpad');
+    Object.assign(window, {automerge, video, screen, fssync, syncpad});
 
     Object.assign(window, require('./tests/monkey')); // for testing
 

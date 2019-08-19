@@ -26,6 +26,7 @@ class SyncPad {
         if (this.fpHandler) this.firepad.off('data', this.fpHandler);
         if (this.amFlush)   this.editor.off('beforeChange', this.amFlush);
         if (this.amHandler) this.amHandler.unregister();
+        this.firepad.dispose();
     }
 
     _formLink() {
@@ -36,6 +37,8 @@ class SyncPad {
         const obj = this.slot.get(),
               subslots = {operations: slotFor(obj.operations),
                           cursors:    slotFor(obj.cursors)};
+
+        this.editor.setValue('');
 
         for (let op of obj.operations)
             this._pull(op);
@@ -61,6 +64,7 @@ class SyncPad {
             for (let entry of diff) {
                 if (entry.action === 'insert')
                     this._pull(entry.value);
+                // TODO transform operation if not at end!
             }
         }, 50, {maxWait: 500});
     }
@@ -78,6 +82,21 @@ class SyncPad {
         return TextOperation.fromJSON(JSON.parse(value));
     }
 
+}
+
+
+class FirepadShare {
+    constructor(operations=[], cursors={}) {
+        this.$type = 'FirepadShare';
+        this.operations = operations;
+        this.cursors = cursors;
+    }
+
+    static from(props) {
+        if (typeof props === 'string')
+            props = {operations: [[props]]};
+        return new FirepadShare(props.operations, props.cursors);
+    }
 }
 
 
@@ -135,4 +154,4 @@ function debounceQueue(func, wait, options) {
 
 
 
-module.exports = {SyncPad};
+module.exports = {SyncPad, FirepadShare};

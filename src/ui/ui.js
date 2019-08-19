@@ -504,14 +504,15 @@ Vue.component('p2p.file-object', {
     }
 });
 
+const {SyncPad, FirepadShare} = require('./syncpad');
+
 Vue.component('syncpad', {
     data: () => ({ slot: undefined }),
     template: `<codemirror ref="editor"/>`,
     mounted() {
         this.$watch('slot', slot => {
-            //const {AutomergeCodeMirror} = require('./automerge-codemirror');
             if (this.pad) this.pad.destroy();
-            //this.pad = new AutomergeCodeMirror(this.$refs.editor.cm, slot);
+            this.pad = new SyncPad(this.$refs.editor.cm, slot);
         });
     }
 });
@@ -584,7 +585,7 @@ Vue.component('record-object', {
     computed: {
         kind() {
             var o = this.object;
-            if (o instanceof automerge.Text) return 'text'; // XXX
+            if (o && o.$type === 'FirepadShare') return 'text'; // XXX
             else if (o && o.$type === 'FileShare') return 'file'; // XXX
             else if (o && o.$type === 'VideoIncoming') return 'video'; // XXX
             else if (typeof(o) === 'object') return 'object';
@@ -600,6 +601,7 @@ Vue.component('record-object', {
         },
         coerced() {
             switch (this.kind) {
+                case 'text': return FirepadShare.from(this.object);
                 case 'video': return VideoIncoming.from(this.object);
                 case 'file': return FileShare.from(this.object);
                 default: return this.object;
