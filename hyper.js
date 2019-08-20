@@ -63,7 +63,7 @@ function main_chat() {
     window.addEventListener('beforeunload', () => {
         c1.close(); c2.close();
     });
-    Object.assign(window, {c1, c2}); //, createDocument, connectDocument, SyncPad});
+    Object.assign(window, {c1, c2});
 }
 
 
@@ -72,11 +72,8 @@ async function createDocument() {
     await c1.init();
 
     c1.sync.create('d1');
-    c1.sync.change('d1', d => { d.name = "meg"; d.cards = new automerge.Text(); });
+    c1.sync.change('d1', d => { d.name = "meg"; d.cards = []; });
 }
-
-
-var {DocumentSlot, DocumentPathSlot} = require('automerge-slots');
 
 
 function main_syncdoc() {
@@ -101,11 +98,8 @@ function main_syncdoc() {
 }
 
 
-const {SyncPad} = require('./src/ui/syncpad');
-
 async function createText() {
     await c1.init();
-    //if (!c1.feed) await c1.create();
 
     var slot = app.vue.$refs.pad.slot;
     slot.get() || slot.set({operations: [], cursors: {}});
@@ -114,22 +108,24 @@ async function createText() {
 
 async function main_syncpad() {
     var c1 = new DocumentClient();
-    var c2 = new DocumentClient();
-
-    var slot = c1.sync.path('d1', ['firepad']);
 
     var app = App.start().attach(c1);
-    app.vue.$refs.pad.slot = slot;
 
     await c1.init();
 
-    var pad1 = new SyncPad(app.vue.$refs.pad.$refs.editor.cm, slot);
-    var pad2 = new SyncPad(app.vue.$refs.otherPad.$refs.editor.cm, slot);
+    var slot = c1.sync.path('d1', ['firepad']);
+    app.vue.$refs.pad.slot = slot;
+    app.vue.$refs.otherPad.slot = slot;
+
+    process.nextTick(() => {
+        var pad1 = app.vue.$refs.pad.pad, pad2 = app.vue.$refs.otherPad.pad;
+        Object.assign(window, {pad1, pad2});
+    });
 
     window.addEventListener('beforeunload', () => {
         c1.close();
     });
-    Object.assign(window, {c1, c2, pad1, pad2, createText});
+    Object.assign(window, {c1, createText});
 }
 
 
@@ -142,8 +138,9 @@ if (typeof window !== 'undefined') {
           video = require('./src/addons/video'),
           screen = require('./src/addons/share-screen'),
           fssync = require('./src/addons/fs-sync'),
-          syncpad = require('./src/ui/syncpad');
-    Object.assign(window, {automerge, video, screen, fssync, syncpad});
+          syncpad = require('./src/ui/syncpad'),
+          firepad = require('firepad-core');
+    Object.assign(window, {automerge, video, screen, fssync, syncpad,  firepad});
 
     Object.assign(window, require('./tests/monkey')); // for testing
 
