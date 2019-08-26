@@ -17,7 +17,7 @@ class Monkey {
         }
     }
 
-    async typewriter(target) {
+    async typewriter(target, babble=this.aToZ()) {
         var op = target instanceof CodeMirror ? (c => target.replaceSelection(c))
                : target.change ? (c => target.change(t => t.push(c))) : undefined;
                
@@ -26,16 +26,23 @@ class Monkey {
         var task = new IntervalTask();
         this.tasks.push(task);
 
-        var babble = Array.from({ length: 26 }, (_, i) => 
-                                String.fromCharCode('a'.charCodeAt(0) + i));
-
-        while (true) {
-            for (let c of babble) {
-                op(c);
-                await task.waitForNext();
+        try {
+            while (true) {
+                for (let c of babble) {
+                    op(c);
+                    await task.waitForNext();
+                }
+                //break;
             }
-            break;
         }
+        finally {
+            task.stop();
+        }
+    }
+
+    aToZ() {
+        return Array.from({ length: 26 },
+            (_, i) => String.fromCharCode('a'.charCodeAt(0) + i));
     }
 }
 
