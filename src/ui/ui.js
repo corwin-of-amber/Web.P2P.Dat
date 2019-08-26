@@ -517,6 +517,18 @@ Vue.component('syncpad', {
     }
 });
 
+Vue.component('automerge-codemirror', {
+    data: () => ({ slot: undefined }),
+    template: `<codemirror ref="editor"/>`,
+    mounted() {
+        this.$watch('slot', slot => {
+            const {AutomergeCodeMirror} = require('automerge-codemirror');
+            if (this.pad) this.pad.destroy();
+            this.pad = new AutomergeCodeMirror(this.$refs.editor.cm, slot, {debounce: {wait: 0}});
+        });
+    }
+});
+
 Vue.component('codemirror', {
     template: `<div></div>`,
     mounted() {
@@ -545,8 +557,13 @@ Vue.component('document-preview', {
         </div>
     `,
     methods: {
-        showText(slot) {
-            this.kind = 'syncpad';
+        showText(slot, kind) {
+            switch (kind) {
+                case 'text/firepad': this.kind = 'syncpad'; break;
+                case 'text/automerge': this.kind = 'automerge-codemirror'; break;
+                default:
+                    throw new Error(`unknown text document, kind '${kind}'`);
+            }
             process.nextTick(() => this.$refs.object.slot = slot);
         },
         showFile(fileshare) {
@@ -563,7 +580,7 @@ Vue.component('record-object', {
     props: ['object'],
     template: `
         <span class="record" :class="kind">
-            <template v-if="kind === 'text'">
+            <template v-if="kind === 'text/automerge' || kind == 'text/firepad'">
                 <button @click="select()">Text</button>
             </template>
             <template v-else-if="kind === 'file'">
@@ -585,10 +602,12 @@ Vue.component('record-object', {
     computed: {
         kind() {
             var o = this.object;
-            if (o && o.$type === 'FirepadShare') return 'text'; // XXX
-            else if (o && o.$type === 'FileShare') return 'file'; // XXX
-            else if (o && o.$type === 'VideoIncoming') return 'video'; // XXX
-            else if (typeof(o) === 'object') return 'object';
+            // XXX
+            if (o instanceof automerge.Text)           return 'text/automerge';
+            else if (o && o.$type === 'FirepadShare')  return 'text/firepad'
+            else if (o && o.$type === 'FileShare')     return 'file';
+            else if (o && o.$type === 'VideoIncoming') return 'video';
+            else if (typeof(o) === 'object')           return 'object';
             else return 'value';
         },
         objectId() {
@@ -601,7 +620,7 @@ Vue.component('record-object', {
         },
         coerced() {
             switch (this.kind) {
-                case 'text': return FirepadShare.from(this.object);
+                case 'text/firepad': return FirepadShare.from(this.object);
                 case 'video': return VideoIncoming.from(this.object);
                 case 'file': return FileShare.from(this.object);
                 default: return this.object;
@@ -628,8 +647,9 @@ class PreviewPane {
 
     showObject(vm, slot) {
         switch (vm.kind) {
-        case 'text':
-            this.app.vue.$refs.preview.showText(slot);
+        case 'text/firepad':
+        case 'text/automerge':
+            this.app.vue.$refs.preview.showText(slot, vm.kind);
             this.app.vue.$refs.preview.$parent.open = true;
             break;
         case 'file':
