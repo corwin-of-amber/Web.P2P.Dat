@@ -4,7 +4,7 @@ const through2 = require('through2'),
 
 
 function muncher(blockSize) {
-    return through2(function (chunk, enc, cb) {
+    return through2.obj(function (chunk, enc, cb) {
         var i = 0;
         while (i < chunk.length) {
             this.push(chunk.slice(i, i + blockSize));

@@ -16,6 +16,14 @@ class FirepadTreeMerge {
         this.ownIds = new Set();
     }
 
+    static from(operations) {
+        var tm = new this();
+        for (let [index, entry] of operations.entries()) {
+            tm.insert(index, entry);
+        }
+        return tm;
+    }
+
     newOperation(operation, id) {
         var tip = this.operations.slice(-1)[0],
             parentLink = tip && [tip.id, tip.v.length - 1],
@@ -37,6 +45,14 @@ class FirepadTreeMerge {
         this.applied.set(operation.id, adj);
         this.residues.set(operation.id, residue);
         return ret;
+    }
+
+    getText() {
+        if (this.operations.length === 0) return "";
+
+        var composed = this.seq.reduce((o1, o2) => this._compose(o1, o2));
+        assert(composed.ops.length === 1 && composed.ops[0].type === 'insert');
+        return composed.ops[0].text;
     }
 
     preadjust(index, incoming) {

@@ -8,13 +8,21 @@ const {FirepadCore} = require('firepad-core'),
 
 
 /**
- * Synchrinizes a CodeMirror editor instance with an Automerge object.
+ * Synchronizes a CodeMirror editor instance with an Automerge object.
  * The object contains a list property (named `operations`) which gets
  * populated with `TextOperation`s, serialized via `toJSON`.
  * A sub-object `cursors` holds active user cursors (@todo still not implemented).
  */
 class SyncPad {
-
+    /**
+     * Creates a synchronized link based on an existing CodeMirror instance.
+     * If the editor contains text, it is cleared and replaced by the most recent
+     * contents of the document.
+     * @param {CodeMirror.Editor} editor a CodeMirror editor instance
+     * @param {DocumentSlotInterface} slot references an object in an Automerge
+     *   doc that will be used to stored and synchronize the text
+     * @param {object} opts options passed to FirepadCore
+     */
     constructor(editor, slot, opts={}) {
         this.editor = editor;
         this.slot = slot;
@@ -28,10 +36,10 @@ class SyncPad {
     }
 
     destroy() {
-        if (this._park)     this._park.cancel();
-        if (this.fpHandler) this.firepad.off('data', this.fpHandler);
-        if (this.amFlush)   this.editor.off('beforeChange', this.amFlush);
-        if (this.amHandler) this.amHandler.unregister();
+        if (this._park)             this._park.cancel();
+        if (this.fpHandler)         this.firepad.off('data', this.fpHandler);
+        if (this.amHandler)         this.amHandler.unregister();
+        if (this._debouncedPatch)   this._debouncedPatch.cancel();
         this.firepad.dispose();
     }
 
@@ -42,13 +50,11 @@ class SyncPad {
     _formLink() {
         this._park = undefined;
         
-        const slotFor = (obj) => this.slot.object(automerge.getObjectId(obj));
+        const slotFor = (obj) => this.slot.object(obj);
 
         const obj = this.slot.get(),
               subslots = {operations: slotFor(obj.operations),
                           cursors:    slotFor(obj.cursors)};
-
-        this.editor.setValue('');
 
         // Firepad -> Automerge
         this.fpHandler = (data) => {
@@ -69,6 +75,8 @@ class SyncPad {
         this.firepad.on('data', this.fpHandler);
 
         // Automerge -> Firepad
+        this._populate(obj.operations);
+
         this.amHandler = registerHandlerObj(subslots.operations, 
             (newVal, newRev, oldRev, changes) => {
                 var diff = patchFromChanges(oldRev, changes);
@@ -98,13 +106,15 @@ class SyncPad {
             this._maybeAccept();
         } });
 
-        this._populate(obj.operations);
+        this._debouncedPatch = debouncedPatch;
     }
 
-    _withIds(values) {
+    static _operationsWithIds(values) {
         return _.zip(values, automerge.Frontend.getElementIds(values))
                 .map(([value,id]) => ({id, v:JSON.parse(value)}));
     }
+
+    _withIds(values) { return this.constructor._operationsWithIds(values); }
 
     _tip(values) {
         values = values || this.slot.get().operations;
@@ -164,6 +174,8 @@ class SyncPad {
     _populate(operations) {
         assert(this.tm.operations.length === 0);
 
+        this.editor.swapDoc(new CodeMirror.Doc(''));  // clears history and does not emit 'change'
+
         for (let [index, entry] of this._withIds(operations).entries()) {
             let operation = this.tm.insert(index, entry);
             this.firepad.data({operation});
@@ -180,10 +192,15 @@ class FirepadShare {
     }
 
     static from(props) {
-        if (typeof props === 'string')
-            props = {operations: [[props]]};
         return new FirepadShare(props.operations, props.cursors);
     }
+
+    getValue() {
+        return FirepadTreeMerge.from(this._withIds(this.operations))
+               .getText();
+    }
+
+    _withIds(operations) { return SyncPad._operationsWithIds(operations); }
 }
 
 

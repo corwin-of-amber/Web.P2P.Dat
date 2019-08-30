@@ -59,9 +59,10 @@ class DirectorySync {
 
         for (let {filename, content} of files) {
             try {
-                this._writeFile(filename, 
-                    (content instanceof automerge.Text) ? content.join('')
-                        : JSON.stringify(content));
+               this._writeFile(filename,
+                    (typeof content === 'string') ? content :
+                    (this._isFirepad(content))    ? this._getTextContent(content) :
+                                                    JSON.stringify(content));
             }
             catch (e) {
                 console.error(`DirectorySync: write of '${filename}' failed;`, e);
@@ -79,25 +80,58 @@ class DirectorySync {
         fs.writeFileSync(fp, content);
     }
 
+    _getTextContent(content) {
+        const {FirepadShare} = require('../ui/syncpad');
+        return FirepadShare.from(content).getValue();
+    }
+
     _createContentWriteStream(filename) {
-        var objId;
+        var pad = this._createSyncPad(filename);
+
+        return through2.obj((chunk, enc, cb) => {
+            try {
+                pad.editor.replaceRange(chunk, {line: Infinity});
+                cb(); // notice: chunk is consumed
+            }
+            catch (e) { cb(e); }
+        })
+        .on('error', () => pad.destroy())
+        .on('finish', () => pad.destroy());
+    }
+
+    _isFirepad(content) {
+        return content && typeof content === 'object'
+                       && content.$type === 'FirepadShare';
+    }
+
+    _createSyncPad(filename) {
+        const {SyncPad} = require('../ui/syncpad'),
+              CodeMirror = require('codemirror');  // oops
+    
+        var slot = this._createFirepadShare(filename);
+        return new SyncPad(new CodeMirror(), slot);    
+    }
+
+    _createFirepadShare(filename) {
+        const {FirepadShare} = require('../ui/syncpad');
+
+        var slot = this._createFileEntry(filename), subslot;
+        slot.change(obj => {
+            obj.content = new FirepadShare();
+            subslot = slot.object(obj.content);
+        });
+        return subslot;
+    }
+
+    _createFileEntry(filename) {
+        var subslot;
         this.slot.change(fileEntries => {
             var index = fileEntries.findIndex(e => e.filename == filename);
             if (index < 0) index = fileEntries.push({filename}) - 1;
             var obj = fileEntries[index];   // must access through index to modify
-            obj.content = new automerge.Text();
-            objId = automerge.getObjectId(obj);
+            subslot = this.slot.object(obj);
         });
-
-        return through2((chunk, enc, cb) => {
-            this.slot.change(fileEntries => {
-                var index = fileEntries.findIndex(e => automerge.getObjectId(e) === objId);
-                var obj = (index >= 0) && fileEntries[index];
-                if (obj && obj.content)
-                    obj.content.push(...chunk.toString('utf-8').split(''));
-            });
-            cb(null, chunk);
-        });
+        return subslot;
     }
 
     indir(p) {
@@ -108,11 +142,44 @@ class DirectorySync {
 
 
 const through2 = require('through2'), streamToBlob = require('stream-to-blob'),
+      mergeOptions = require('merge-options'),
       {keyHex} = require('../net/crowd'),
-      options = require('../core/options');
+      {FileWatcher} = require('../core/file-watcher');
 
 const DEFAULT_FILE_METADATA = {type: 'fileshare',
                                mimeType: 'application/octet-stream'};
+
+class FileSync {
+
+    constructor(slot, filename, metadata) {
+        this.slot = slot;
+        this.filename = filename;
+        this.metadata = metadata;
+        this.share = undefined;
+    }
+
+    async update(crowd=this._crowd) {
+        if (!crowd) throw new Error('no FeedCrowd given');
+        this.share = await (this.share ? this.share.recreate(crowd, this.filename)
+                                       : FileShare.create(crowd, this.filename, this.metadata));
+        this._crowd = crowd;
+        this.slot.set(this.share);
+        return this;
+    }
+
+    watch() {
+        if (this._watcher) this._watcher.clear();
+
+        this._watcher = new FileWatcher().single(this.filename)
+            .on('change', () => this.update());
+        return this;
+    }
+
+    unwatch() {
+        if (this._watcher) this._watcher.clear();
+        this._watcher = undefined;
+    }
+}
 
 /**
  * Initializes a shared file entry. This object can be embedded in a JSON
@@ -146,7 +213,7 @@ class FileShare {
      * @returns {FileShare} the new version entry
      */
     static async create(crowd, file_or_stream, metadata) {
-        metadata = options(metadata, DEFAULT_FILE_METADATA);
+        metadata = mergeOptions(DEFAULT_FILE_METADATA, metadata);
 
         var feed = await crowd.create({valueEncoding: 'binary', sparse: true}, metadata);
         return await this.send(file_or_stream, feed);
@@ -226,4 +293,4 @@ function stream_pipeline(...streams) {
 
 
 
-module.exports = {DirectorySync, FileShare, streamToBlob};
+module.exports = {DirectorySync, FileSync, FileShare};
