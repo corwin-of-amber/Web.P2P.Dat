@@ -128,6 +128,8 @@ class DirectorySync {
         p = p.replace(/^[/]+/, '');
         return path.join(this.dir, p);
     }
+
+    static hasNodeFS() { return !!fs; }
 }
 
 

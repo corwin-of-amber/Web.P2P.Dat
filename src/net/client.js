@@ -181,12 +181,6 @@ class FeedClient extends SwarmClient {
         this.peers.delete(id);
     }
 
-    join(channel, withFeed=true) {
-        if (withFeed && !this.feed) this.create();
-
-        return super.join(channel);
-    }
-
     get key() {
         return this.crowd.longKey(this.feed);
     }

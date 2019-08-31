@@ -9,6 +9,7 @@ class DocumentClient extends FeedClient {
         super();
 
         this._setupDoc();
+        this._tuneInForShouts();
     }
 
     async _setupDoc() {
@@ -38,18 +39,21 @@ class DocumentClient extends FeedClient {
         d.changes = d.changes || await this.create({}, {type}, false);
         d.transient = d.transient ||
                 await this.create({extensions: ['shout']}, {type, transitive: false}, false);
-        // Listen for shouts
-        d.transient.on('extension', (name, msg, peer) => {
-            console.log(name, peer.stream.stream.id);
-            if (name === 'shout') this.emit('shout');
-        });
     }
 
     shout() {
-        for (let f of this.crowd.remoteFeeds) {
-            if (f.meta.type === 'docsync')
-                f.extension('shout', Buffer.from(''));
-        }
+        this.docFeeds.transient.extension('shout', Buffer.from(''));
+    }
+
+    _tuneInForShouts() {
+        this.crowd.on('feed:ready', feed => {
+            if (feed.meta.type === 'docsync') {
+                feed.on('extension', (name, msg, peer) => {
+                    console.log(`${name} %c${peer.stream.stream.id.slice(0,7)}`, 'color: green;');
+                    if (name === 'shout') this.emit('shout');
+                });
+            }
+        })
     }
 
     /**
@@ -71,6 +75,8 @@ function main_chat() {
     var c2 = new FeedClient();
 
     App.start().attach(c1);
+
+    c1.create();
 
     window.addEventListener('beforeunload', () => {
         c1.close(); c2.close();
@@ -95,12 +101,16 @@ function main_syncdoc() {
 
     const {DirectorySync} = require('./src/addons/fs-sync');
 
-    var ds = new DirectorySync(c1.sync.path('d1', ['files']), '/tmp/dirsync');
+    if (DirectorySync.hasNodeFS()) {
+        var ds = new DirectorySync(c1.sync.path('d1', ['files']), '/tmp/dirsync');
+        c1.on('shout', () => ds.save());
+        Object.assign(window, {ds});
+    }
 
     window.addEventListener('beforeunload', () => {
         c1.close();
     });
-    Object.assign(window, {c1, ds, createDocument});
+    Object.assign(window, {c1, createDocument});
 }
 
 
