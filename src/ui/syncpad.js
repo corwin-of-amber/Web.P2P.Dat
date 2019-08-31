@@ -1,5 +1,6 @@
 const _ = require('lodash'),
-      assert = require('assert');
+      assert = require('assert'),
+      through2 = require('through2');
 
 const {FirepadCore} = require('firepad-core'),
       {FirepadTreeMerge} = require('../addons/firepad-conflow');
@@ -45,6 +46,24 @@ class SyncPad {
 
     get ready() {
         return this._park || Promise.resolve();
+    }
+
+    /**
+     * Creates a text write stream, where writes are appended to the
+     * document.
+     * @param {boolean} autodestruct destroy the pad when the stream ends
+     *   (default: true).
+     */
+    createWriteStream(autodestruct=true) {
+        return through2.obj((chunk, enc, cb) => {
+            try {
+                this.editor.replaceRange(chunk, {line: Infinity});
+                cb(); // notice: chunk is consumed
+            }
+            catch (e) { cb(e); }
+        })
+        .on('error', () => { if (autodestruct) this.destroy(); })
+        .on('finish', () => { if (autodestruct) this.destroy(); });
     }
 
     _formLink() {

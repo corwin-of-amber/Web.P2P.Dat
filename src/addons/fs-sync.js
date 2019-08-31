@@ -85,23 +85,13 @@ class DirectorySync {
         return FirepadShare.from(content).getValue();
     }
 
-    _createContentWriteStream(filename) {
-        var pad = this._createSyncPad(filename);
-
-        return through2.obj((chunk, enc, cb) => {
-            try {
-                pad.editor.replaceRange(chunk, {line: Infinity});
-                cb(); // notice: chunk is consumed
-            }
-            catch (e) { cb(e); }
-        })
-        .on('error', () => pad.destroy())
-        .on('finish', () => pad.destroy());
-    }
-
     _isFirepad(content) {
         return content && typeof content === 'object'
                        && content.$type === 'FirepadShare';
+    }
+
+    _createContentWriteStream(filename) {
+        return this._createSyncPad(filename).createWriteStream();
     }
 
     _createSyncPad(filename) {
