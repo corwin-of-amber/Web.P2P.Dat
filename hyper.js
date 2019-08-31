@@ -37,7 +37,19 @@ class DocumentClient extends FeedClient {
         var d = this.docFeeds, type = 'docsync';
         d.changes = d.changes || await this.create({}, {type}, false);
         d.transient = d.transient ||
-                await this.create({}, {type, transitive: false}, false);
+                await this.create({extensions: ['shout']}, {type, transitive: false}, false);
+        // Listen for shouts
+        d.transient.on('extension', (name, msg, peer) => {
+            console.log(name, peer.stream.stream.id);
+            if (name === 'shout') this.emit('shout');
+        });
+    }
+
+    shout() {
+        for (let f of this.crowd.remoteFeeds) {
+            if (f.meta.type === 'docsync')
+                f.extension('shout', Buffer.from(''));
+        }
     }
 
     /**
@@ -99,10 +111,23 @@ function main_syncdoc() {
 
 
 async function createText() {
-    await c1.init();
-
     var slot = app.vue.$refs.pad.slot;
-    slot.get() || slot.set({operations: [], cursors: {}});
+    slot.get() || slot.set({operations: ['[{"o":["a"]}]'], cursors: {}});
+
+    //slot = app.vue.$refs.otherPad.slot;  // create a fork
+    c1.sync.docs.setDoc('d2', automerge.merge(automerge.init(), c1.sync.docs.getDoc('d1')));
+
+    var ds = c1.sync.docs;
+
+    function sync12() {
+        ds.setDoc('d1', automerge.merge(ds.getDoc('d1'), ds.getDoc('d2')));
+    }
+
+    function sync21() {
+        ds.setDoc('d2', automerge.merge(ds.getDoc('d2'), ds.getDoc('d1')));
+    }
+
+    Object.assign(window, {sync12, sync21});
 }
 
 
@@ -113,12 +138,15 @@ async function main_syncpad() {
 
     await c1.init();
 
-    var slot = c1.sync.path('d1', ['firepad']);
-    app.vue.$refs.pad.slot = slot;
-    app.vue.$refs.otherPad.slot = slot;
+    var slot1 = c1.sync.path('d1', ['firepad']);
+    app.vue.$refs.pad.slot = slot1;
+    var slot2 = c1.sync.path('d2', ['firepad']);
+    app.vue.$refs.otherPad.slot = slot1;
 
     process.nextTick(() => {
         var pad1 = app.vue.$refs.pad.pad, pad2 = app.vue.$refs.otherPad.pad;
+        pad1.firepad.setUserId('pad1');
+        pad2.firepad.setUserId('pad2');
         Object.assign(window, {pad1, pad2});
     });
 
@@ -126,6 +154,8 @@ async function main_syncpad() {
         c1.close();
     });
     Object.assign(window, {c1, createText});
+
+    //createText();
 }
 
 

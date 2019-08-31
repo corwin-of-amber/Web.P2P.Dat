@@ -147,7 +147,8 @@ class FeedClient extends SwarmClient {
 
         this.peers = new Map();
 
-        this.crowd = new FeedCrowd({storage: ram, feed: {valueEncoding: 'json'}});
+        this.crowd = new FeedCrowd({storage: ram, feed: {valueEncoding: 'json'}, 
+                                    extensions: ['shout']});
 
         this.crowd.on('feed:append', feed => this.onAppend(feed));
         this.crowd.on('feed:error', (feed, e) => this.onError(feed, e));
@@ -159,7 +160,7 @@ class FeedClient extends SwarmClient {
     _stream(info) {
         console.log('stream', info);
         try {
-            var wire = this.crowd.replicate({id: info.id, timeout: false});
+            var wire = this.crowd.replicate({id: info.id});
             this.peers.set(info.id, wire);
             return wire.chunked();
         }

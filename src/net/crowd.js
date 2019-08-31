@@ -1,10 +1,10 @@
 const hypercore = require('hypercore'),
       Protocol = require('hypercore-protocol');
 
-const {EventEmitter} = require('events');
+const {EventEmitter} = require('events'),
+      mergeOptions = require('merge-options');
 
-const options = require('../core/options'),
-      munch = require('../core/munch');
+const munch = require('../core/munch');
 
 
 
@@ -23,7 +23,7 @@ class FeedCrowd extends EventEmitter {
 
     constructor(opts) {
         super();
-        this.opts = options(opts, DEFAULT_OPTS);
+        this.opts = mergeOptions(DEFAULT_OPTS, opts);
 
         this.localFeeds = [];
         this.remoteFeeds = [];
@@ -35,6 +35,7 @@ class FeedCrowd extends EventEmitter {
     get feeds() { return this.localFeeds.concat(this.remoteFeeds); }
 
     replicate(opts) {
+        opts = mergeOptions({extensions: this.opts.extensions}, opts);
         var wire = new Wire(this.opts.key, opts)
             .on('handshake', () => this._populate(wire))
             .on('control', info => this._control(wire, info))
@@ -86,12 +87,12 @@ class FeedCrowd extends EventEmitter {
     shortKey(feed) { return keyHexShort(feed); }
 
     _mkfeed(key, opts, meta) {
-        opts = options(opts, this.opts.feed);
+        opts = mergeOptions(this.opts.feed, opts);
 
         var feed = hypercore(opts.storage || this.opts.storage, 
                              key, opts);
         feed.opts = opts;
-        feed.meta = options(meta, this.opts.meta);
+        feed.meta = mergeOptions(this.opts.meta, meta);
 
         feed.on('ready', () => {
             console.log(`feed %c${keyHexShort(feed)}`, 'color: blue;');
@@ -181,6 +182,7 @@ class Wire extends Protocol {
 
     share(feed) {
         if (!this._shared.has(feed)) {
+            this._validateExtensions(feed);
             this._shared.add(feed);
             feed.replicate({stream: this, live: true});
         }
@@ -193,6 +195,13 @@ class Wire extends Protocol {
                 key: keyHex(x), opts: x.opts, meta: x.meta
             }));
             this.control({have: entries});
+        }
+    }
+
+    _validateExtensions(feed) {
+        for (let e of feed.extensions) {
+            if (!this.extensions.includes(e))
+                console.warn(`hypercore extension '${e}' is not registered with this crowd`);
         }
     }
 
