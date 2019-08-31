@@ -238,17 +238,17 @@ Vue.component('p2p.button-join', {
             var update = () => this.update();
             update();
             client.hub.on('open', update);
-            client.hub.on('close', update);
             client.swarm.on('open', update);
-            this._registered = {swarm: client.swarm, hub: client.hub, update};
+            client.on('disconnect', update);
+            this._registered = {client, swarm: client.swarm, hub: client.hub, update};
         },
         unregister() {
             this.clientChannels = null;
             if (this._registered) {
-                var {swarm, hub, update} = this._registered;
+                var {client, swarm, hub, update} = this._registered;
                 hub.removeListener('open', update);
-                hub.removeListener('close', update);
                 swarm.removeListener('open', update);
+                client.removeListener('disconnect', update);
                 this._registered = undefined;
             }
         },

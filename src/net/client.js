@@ -53,7 +53,7 @@ class SwarmClient extends EventEmitter {
             });
             
             this.hub.once('open', () => {
-                this._registerReconnect();
+                this._registerCloseEvents();
                 resolve(); this.emit('init');
             });
 
@@ -64,6 +64,8 @@ class SwarmClient extends EventEmitter {
 
             this.id = this.swarm.id.toString('hex');
             console.log(`me: %c${this.id}`, 'color: green;');
+
+            this._registerReconnect();
         });
     }
 
@@ -125,13 +127,21 @@ class SwarmClient extends EventEmitter {
         return peers;
     }
 
+    _registerCloseEvents() {
+        for (let s of this.hub.sockets) s.onclose = () => this.emit('disconnect');
+    }
+
     _registerReconnect() {
-        for (let s of this.hub.sockets) s.onclose = () => this.reconnect();
+        if (!this._reconnectHandler) {
+            this._reconnectHandler = () => this.reconnect();
+            this.on('disconnect', this._reconnectHandler);
+        }
     }
 
     _unregisterReconnect() {
-        if (this.hub) {
-            for (let s of this.hub.sockets) s.onclose = null
+        if (this._reconnectHandler) {
+            this.removeListener('disconnect', this._reconnectHandler);
+            this._reconnectHandler = null;
         }
     }
 }
