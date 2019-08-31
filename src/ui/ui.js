@@ -569,6 +569,44 @@ Vue.component('document-preview', {
         showFile(fileshare) {
             this.kind = 'p2p.file-object';
             process.nextTick(() => this.$refs.object.fileshare = fileshare);
+        },
+        showObject(vm, slot) {
+            switch (vm.kind) {
+                case 'text/firepad':
+                case 'text/automerge':
+                    this.showText(slot, vm.kind);  return true;
+                case 'file':
+                    this.showFile(vm.coerced());   return true;
+            }
+            return false;
+        }        
+    }
+});
+
+Vue.component('preview-pane', {
+    template: `
+        <drawer ref="drawer">
+            <document-preview ref="preview"></document-preview>
+        </drawer>
+    `,
+    methods: {
+        select(ev) {
+            var client = this.$root.clientState.client;
+            if (client && client.sync) {
+                var slot = client.sync.object(ev.docId, ev.target.object);
+                this.zoomObject(ev.target, slot);
+            }
+        },
+
+        showObject(vm, slot) {
+            if (this.$refs.preview.showObject(vm, slot))
+                this.$refs.drawer.open = true;
+        },
+
+        zoomObject(vm, slot) {
+            this.showObject(vm, slot);
+            if (this.watch) this.watch.destroy();
+            this.watch = new Watch(vm, 'object', () => this.showObject(vm, slot));
         }
     }
 });
@@ -639,33 +677,6 @@ class Watch {
     }
 }
 
-class PreviewPane {
-    constructor(app) {
-        this.app = app;
-        this.watch = undefined;
-    }
-
-    showObject(vm, slot) {
-        switch (vm.kind) {
-        case 'text/firepad':
-        case 'text/automerge':
-            this.app.vue.$refs.preview.showText(slot, vm.kind);
-            this.app.vue.$refs.preview.$parent.open = true;
-            break;
-        case 'file':
-            this.app.vue.$refs.preview.showFile(vm.coerced());
-            this.app.vue.$refs.preview.$parent.open = true;
-            break;
-        }
-    }
-
-    zoomObject(vm, slot) {
-        this.showObject(vm, slot);
-        if (this.watch) this.watch.destroy();
-        this.watch = new Watch(vm, 'object', () => this.showObject(vm, slot));
-    }
-}
-
 
 class App {
     constructor(dom) {
@@ -693,5 +704,5 @@ App.start = function (root) {
 
 
 if (typeof module !== 'undefined') {
-    module.exports = {App, PreviewPane};
+    module.exports = {App};
 }

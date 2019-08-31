@@ -10,12 +10,9 @@
         <div id="app">
             <p2p.button-join channel="doc2"></p2p.button-join>
             <p2p.list-of-peers ref="peers"></p2p.list-of-peers>
-            <p2p.documents-raw ref="documents"></p2p.documents-raw>
-            <!-- <p2p.list-of-messages ref="messages"></p2p.list-of-messages> -->
+            <p2p.documents-raw ref="documents" @select="$refs.preview.select($event)"></p2p.documents-raw>
             <p2p.list-of-feeds ref="feeds"></p2p.list-of-feeds>
-            <drawer>
-                <document-preview ref="preview"></document-preview>
-            </drawer>
+            <preview-pane ref="preview"></document-preview>
         </div>
     </body>
 

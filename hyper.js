@@ -91,13 +91,7 @@ async function createDocument() {
 function main_syncdoc() {
     var c1 = new DocumentClient();
 
-    var app = App.start().attach(c1),
-        preview = new PreviewPane(app);
-
-    app.vue.$refs.documents.$on('select', async (ev) => {
-        var slot = c1.sync.object(ev.docId, ev.target.object);
-        preview.zoomObject(ev.target, slot);
-    });
+    App.start().attach(c1);
 
     const {DirectorySync} = require('./src/addons/fs-sync');
 
