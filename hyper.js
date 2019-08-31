@@ -102,7 +102,7 @@ function main_syncdoc() {
     const {DirectorySync} = require('./src/addons/fs-sync');
 
     if (DirectorySync.hasNodeFS()) {
-        var ds = new DirectorySync(c1.sync.path('d1', ['files']), '/tmp/dirsync');
+        var ds = new DirectorySync(c1.sync.path('d1', ['source']), '/tmp/dirsync');
         c1.on('shout', () => ds.save());
         Object.assign(window, {ds});
     }

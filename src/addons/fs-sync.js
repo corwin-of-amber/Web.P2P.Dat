@@ -159,10 +159,10 @@ class FileSync {
         return this;
     }
 
-    watch() {
+    watch(opts) {
         if (this._watcher) this._watcher.clear();
 
-        this._watcher = new FileWatcher().single(this.filename)
+        this._watcher = new FileWatcher(opts).single(this.filename)
             .on('change', () => this.update());
         return this;
     }
