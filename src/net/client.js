@@ -8,7 +8,8 @@ const ram = require('random-access-memory');
 const {EventEmitter} = require('events');
 
 const deferred = require('../core/deferred'),
-      {FeedCrowd} = require('./crowd');
+      {FeedCrowd} = require('./crowd'),
+      {DocSync} = require('./merge');
 
 
 
@@ -100,6 +101,8 @@ class SwarmClient extends EventEmitter {
      * @param {string} channel channel name; if omitted, looks in all channels
      */
     getPeer(id, channel=undefined) {
+        if (!this.swarm) return undefined;
+
         if (id.id) id = id.id;
         if (typeof id !== 'string') id = id.toString('hex');
 
@@ -114,6 +117,8 @@ class SwarmClient extends EventEmitter {
     }
 
     getPeers(channel=undefined) {
+        if (!this.swarm) return [];
+
         var peers = [];
 
         var channelMap = this.swarm.webrtc.channels,

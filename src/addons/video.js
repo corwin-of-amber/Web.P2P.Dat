@@ -1,5 +1,6 @@
 const assert = require('assert'),
-      {EventEmitter} = require('events');
+      {EventEmitter} = require('events'),
+      mergeOptions = require('merge-options');
 
 
 
@@ -10,7 +11,7 @@ class VideoOutgoing extends EventEmitter {
     }
 
     static async acquire(constraints) {
-        constraints = constraints || {video: true};
+        constraints = mergeOptions({video: true, audio: true}, constraints);
         var stream = await navigator.mediaDevices.getUserMedia(constraints);
         return new VideoOutgoing(stream);
     }
@@ -78,10 +79,17 @@ class VideoIncoming {
     }
     _scanPeer(peer) {
         var remote = (peer && peer._remoteStreams) || [];
-        return remote.filter(s => this.isRelevantStream(s.id));
+        return remote.filter(stream => this.isRelevantStream(stream.id)
+                                       && stream.active);
     }
 
-    static receive(stream, play=true) {
+    static receiveRemote(client, peers) {
+        peers = peers || client.getPeers();
+        return [].concat(...peers.map(peer => peer ? peer._remoteStreams : []))
+            .filter(stream => stream.active);
+    }
+
+    static createVideoElement(stream, play=true) {
         var vid = document.createElement('video');
         vid.srcObject = stream;
         if (play) vid.play();

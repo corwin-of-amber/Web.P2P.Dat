@@ -362,7 +362,7 @@ Vue.component('p2p.source-video', {
             this.clientState = state;
             this.rescanPeers();
         }, {immediate: true});
-        this.$watch('peers', () => this.rescanPeers());
+        this.$watch('videoincoming', () => this.rescanPeers());
         this.activePeers = this.$refs.source.peers;
         window.vs = this;
     },
@@ -379,12 +379,15 @@ Vue.component('p2p.source-video', {
         },
         rescanPeers() {
             var client = this.clientState && this.clientState.client;
-            if (client && this.videoincoming) {
+            if (client) {
                 this._set(this.receiveFrom(client));
             }
         },
         receiveFrom(client) {
-            return this.videoincoming.receive(client);
+            if (this.videoincoming)
+                return this.videoincoming.receive(client);
+            else
+                return VideoIncoming.receiveRemote(client);
         }
     },
     components: {
@@ -465,7 +468,7 @@ Vue.component('video-widget', {
                 this.$watch('stream', (stream) => {
                     this.$el.innerHTML = '';
                     if (stream instanceof MediaStream) {
-                        this.$el.append(VideoIncoming.receive(stream));
+                        this.$el.append(VideoIncoming.createVideoElement(stream));
                     }
                 }, {immediate: true});
             }
