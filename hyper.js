@@ -1,73 +1,6 @@
-const {FeedClient} = require('./src/net/client'),
-      {DocSync} = require('./src/net/merge'),
-      {App, PreviewPane} = require('./src/ui/ui');
+const {FeedClient, DocumentClient} = require('./src/net/client'),
+      {App} = require('./src/ui/ui');
 
-
-class DocumentClient extends FeedClient {
-
-    constructor() {
-        super();
-
-        this._setupDoc();
-        this._tuneInForShouts();
-    }
-
-    async _setupDoc() {
-        this.docFeeds = {};
-
-        this.sync = new DocSync();
-        this.sync.on('data', d => {
-            var feed = d.changes ? this.docFeeds.changes : this.docFeeds.transient;
-            if (feed) feed.append(d);
-            else console.warn('DocSync message lost;', d);
-        });
-        this.on('append', ev => {
-            if (ev.feed.meta && ev.feed.meta.type === 'docsync' &&
-                !Object.values(this.docFeeds).includes(ev.feed)) {
-                this.sync.data(ev.data);
-            }
-        });
-    }
-
-    async _init() {
-        await super._init();
-        await this._initFeeds();
-    }
-
-    async _initFeeds() {
-        var d = this.docFeeds, type = 'docsync';
-        d.changes = d.changes || await this.create({}, {type}, false);
-        d.transient = d.transient ||
-                await this.create({extensions: ['shout']}, {type, transitive: false}, false);
-    }
-
-    shout() {
-        this.docFeeds.transient.extension('shout', Buffer.from(''));
-    }
-
-    _tuneInForShouts() {
-        this.crowd.on('feed:ready', feed => {
-            if (feed.meta.type === 'docsync') {
-                feed.on('extension', (name, msg, peer) => {
-                    console.log(`${name} %c${peer.stream.stream.id.slice(0,7)}`, 'color: green;');
-                    if (name === 'shout') this.emit('shout');
-                });
-            }
-        })
-    }
-
-    /**
-     * Drops remote feeds that contain only clock events without changes.
-     */
-    async _cleanup() {
-        var useless = (items) =>        /* clock may be `null` */
-            items.every(d => d.docId && (d.clock !== undefined) && !d.changes);
-        var stillUseful = Promise.all(this.remoteFeeds.map(async feed => {
-            if (!useless(await this._feedGetAll(feed))) return feed;
-        }));
-        this.remoteFeeds = (await stillUseful).filter(x => x);
-    }    
-}
 
 
 function main_chat() {
@@ -84,6 +17,14 @@ function main_chat() {
     Object.assign(window, {c1, c2});
 }
 
+function main_chat_headless(channel='lobby') {
+    var c1 = new FeedClient();
+    c1.join(channel);
+    c1.on('append', ev => {
+        if (ev.data.message) console.log(ev.data.timestamp, ev.data.message);
+        else                 console.log(ev.data);
+    });
+}
 
 
 async function createDocument() {
@@ -180,7 +121,5 @@ if (typeof window !== 'undefined') {
 
     Object.assign(window, {main_chat, main_syncdoc, main_syncpad});
 }
-/*
-else
-    c1.join('lobby', false); // listen only
-*/
+else 
+    main_chat_headless();  // listen only

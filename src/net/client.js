@@ -224,5 +224,61 @@ class FeedClient extends SwarmClient {
 }
 
 
+class DocumentClient extends FeedClient {
 
-module.exports = {SwarmClient, FeedClient};
+    constructor() {
+        super();
+
+        this._setupDoc();
+        this._tuneInForShouts();
+    }
+
+    async _setupDoc() {
+        this.docFeeds = {};
+
+        this.sync = new DocSync();
+        this.sync.on('data', d => {
+            var feed = d.changes ? this.docFeeds.changes : this.docFeeds.transient;
+            if (feed) feed.append(d);
+            else console.warn('DocSync message lost;', d);
+        });
+        this.on('append', ev => {
+            if (ev.feed.meta && ev.feed.meta.type === 'docsync' &&
+                !Object.values(this.docFeeds).includes(ev.feed)) {
+                this.sync.data(ev.data);
+            }
+        });
+    }
+
+    async _init() {
+        await super._init();
+        await this._initFeeds();
+    }
+
+    async _initFeeds() {
+        var d = this.docFeeds, type = 'docsync';
+        d.changes = d.changes || await this.create({}, {type}, false);
+        d.transient = d.transient ||
+                await this.create({extensions: ['shout']}, {type, transitive: false}, false);
+    }
+
+    shout() {
+        this.docFeeds.transient.extension('shout', Buffer.from(''));
+    }
+
+    _tuneInForShouts() {
+        this.crowd.on('feed:ready', feed => {
+            if (feed.meta.type === 'docsync') {
+                feed.on('extension', (name, msg, peer) => {
+                    console.log(`${name} %c${peer.stream.stream.id.slice(0,7)}`, 'color: green;');
+                    if (name === 'shout') this.emit('shout');
+                });
+            }
+        })
+    }
+
+}
+
+
+
+module.exports = {SwarmClient, FeedClient, DocumentClient};
