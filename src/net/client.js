@@ -5,7 +5,8 @@ const swarm = require('./discovery-swarm-web-thin');
 
 const ram = require('random-access-memory');
 
-const {EventEmitter} = require('events');
+const {EventEmitter} = require('events'),
+      mergeOptions = require('merge-options');
 
 const deferred = require('../core/deferred'),
       {FeedCrowd} = require('./crowd'),
@@ -19,9 +20,11 @@ const node_require = require, /* bypass browserify */
       wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('wrtc') : undefined;
 
 
-const DEFAULT_APP_NAME = 'dat-p2p-crowd',
-      DEFAULT_SERVERS = {hub: 'wss://amberhubws.herokuapp.com'};
-      //DEFAULT_SERVERS = {hub: 'ws://localhost:3300'};
+const DEFAULT_OPTIONS = {
+        appName: 'dat-p2p-crowd',
+        servers: {hub: 'wss://amberhubws.herokuapp.com'}
+        //servers: {hub: 'ws://localhost:3300'}
+    };
 
 
 
@@ -29,9 +32,7 @@ class SwarmClient extends EventEmitter {
 
     constructor(opts) {
         super();
-        this.opts = opts;
-        this.opts.servers = this.opts.servers || DEFAULT_SERVERS;
-        this.opts.appName = this.opts.appName || DEFAULT_APP_NAME;
+        this.opts = mergeOptions(DEFAULT_OPTIONS, opts);
         this.deferred = {init: deferred()};
 
         this.channels = new Set();
@@ -45,7 +46,7 @@ class SwarmClient extends EventEmitter {
     _init() {
         return new Promise((resolve, reject) => {
             this.hub =
-                signalhubws(DEFAULT_APP_NAME, [this.opts.servers.hub], node_ws);
+                signalhubws(this.opts.appName, [this.opts.servers.hub], node_ws);
 
             var id = this.swarm ? this.swarm.id : undefined;
 
@@ -155,10 +156,10 @@ class SwarmClient extends EventEmitter {
 
 class FeedClient extends SwarmClient {
 
-    constructor() {
-        super({
+    constructor(opts) {
+        super(mergeOptions({
             stream: info => this._stream(info)
-        });
+        }, opts));
 
         this.peers = new Map();
 
@@ -231,8 +232,8 @@ class FeedClient extends SwarmClient {
 
 class DocumentClient extends FeedClient {
 
-    constructor() {
-        super();
+    constructor(opts) {
+        super(opts);
 
         this._setupDoc();
         this._tuneInForShouts();
