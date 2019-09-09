@@ -2,7 +2,8 @@ const _ = require('lodash'),
       assert = require('assert'),
       through2 = require('through2');
 
-const {FirepadCore} = require('firepad-core'),
+const automerge = require('automerge'),
+      {FirepadCore} = require('firepad-core'),
       {FirepadTreeMerge} = require('../addons/firepad-conflow');
 
 
@@ -193,7 +194,8 @@ class SyncPad {
     _populate(operations) {
         assert(this.tm.operations.length === 0);
 
-        this.editor.swapDoc(new CodeMirror.Doc(''));  // clears history and does not emit 'change'
+        // Start a new doc; this clears history and does not emit 'change'
+        this.editor.swapDoc(new CodeMirror.Doc('', this.editor.getOption('mode')));
 
         for (let [index, entry] of this._withIds(operations).entries()) {
             let operation = this.tm.insert(index, entry);
