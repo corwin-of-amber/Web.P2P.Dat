@@ -701,6 +701,7 @@ class App {
 
 App.start = function (root) {
     window.app = new App(root || document.querySelector('#app'));
+    window.addEventListener('beforeunload', () => { window.app = null; });
     return window.app;
 }
 

@@ -50,6 +50,7 @@ function main_syncdoc() {
 
     window.addEventListener('beforeunload', () => {
         c1.close();
+        window.c1 = window.createDocument = window.ds = null;
     });
     Object.assign(window, {c1, createDocument});
 }
@@ -115,11 +116,19 @@ if (typeof window !== 'undefined') {
           fssync = require('./src/addons/fs-sync'),
           syncpad = require('./src/ui/syncpad'),
           firepad = require('firepad-core');
-    Object.assign(window, {automerge, video, screen, fssync, syncpad,  firepad});
+    Object.assign(window, {automerge, video, screen, fssync, syncpad, firepad});
 
     Object.assign(window, require('./tests/monkey')); // for testing
 
     Object.assign(window, {main_chat, main_syncdoc, main_syncpad});
+
+    window.addEventListener('beforeunload', () => {
+        window.automerge = window.video = window.screen = window.syncpad = window.fssync = window.firepad =
+        window.main_chat = window.main_syncdoc =  window.main_syncpad = null;
+        Date.prototype.com$cognitect$transit$equals =
+        Date.prototype.com$cognitect$transit$hashCode = null;
+        document.body.innerHTML = "";
+    });
 }
 else 
     main_chat_headless();  // listen only
