@@ -70,11 +70,15 @@ class SyncPad {
     _formLink() {
         this._park = undefined;
         
-        const slotFor = (obj) => this.slot.object(obj);
+        const slotFor = (obj, prop) => {
+            obj = _.isObject(obj) ? obj[prop] : false;
+            if (!obj) throw new Error(`(SyncPad) expected property '${prop}' is missing`);
+            return this.slot.object(obj);
+        };
 
         const obj = this.slot.get(),
-              subslots = {operations: slotFor(obj.operations),
-                          cursors:    slotFor(obj.cursors)};
+              subslots = {operations: slotFor(obj, 'operations'),
+                          cursors:    slotFor(obj, 'cursors')};
 
         // Firepad -> Automerge
         this.fpHandler = (data) => {
