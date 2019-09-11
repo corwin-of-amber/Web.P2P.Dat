@@ -20,7 +20,7 @@ function main_chat() {
 function main_chat_headless(channel='lobby') {
     var c1 = new FeedClient();
     c1.join(channel);
-    c1.on('append', ev => {
+    c1.on('feed:append', ev => {
         if (ev.data.message) console.log(ev.data.timestamp, ev.data.message);
         else                 console.log(ev.data);
     });

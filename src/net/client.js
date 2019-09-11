@@ -5,7 +5,8 @@ const swarm = require('./discovery-swarm-web-thin');
 
 const ram = require('random-access-memory');
 
-const {EventEmitter} = require('events'),
+const assert = require('assert'),
+      {EventEmitter} = require('events'),
       mergeOptions = require('merge-options');
 
 const deferred = require('../core/deferred'),
@@ -212,7 +213,7 @@ class FeedClient extends SwarmClient {
         for (let i = from; i < to; i++) {
             await this._feedGet(feed, i).then(item => {
                 //console.log(this.crowd.shortKey(feed), i, item);
-                this.emit('append', {me: this.key, from: this.crowd.longKey(feed), feed, 
+                this.emit('feed:append', {me: this.key, from: this.crowd.longKey(feed), feed, 
                     index: i, data: item})
             })
             .catch(e => this.onError(feed, e));
@@ -230,6 +231,72 @@ class FeedClient extends SwarmClient {
 }
 
 
+/**
+ * Represents a subset of the feeds and provides data reception and
+ * synchronization events.
+ */
+class FeedGroup extends EventEmitter {
+
+    constructor(client, selector=()=>true) {
+        super();
+        this.client = client;
+        this.selector = selector;
+        this.members = new Map();
+
+        this._initEvents();
+        this._initMembers();
+    }
+
+    isSynchronized() {
+        return ievery(this.members.entries(), 
+                ([feed, {loc, stats}]) => loc === FeedGroup.Loc.LOCAL ||
+                                          stats.index >= feed.length - 1);
+    }
+
+    _initEvents() {
+        this.client.crowd.on('feed:ready', feed => {
+            if (this.selector(feed)) this._add(feed);
+        });
+        this.client.on('feed:append', ev => {
+            if (this.selector(ev.feed)) {
+                var entry = ev.info = this.members.get(ev.feed);
+                this.emit('feed:append', ev);
+                this._updateStats(entry, ev);
+            }
+        });
+    }
+
+    _initMembers() {
+        for (let feed of this.client.crowd.feeds)
+            if (this.selector(feed)) this._add(feed);
+    }
+
+    _add(feed) {
+        this.members.set(feed, {loc: this._locationOf(feed),
+                                stats: {index: -1}});
+        feed.on('extension', (name, msg, peer) =>
+            this.emit('feed:extension', name, msg, peer));
+    }
+
+    _locationOf(feed) {
+        return this.client.crowd.localFeeds.includes(feed) 
+                    ? FeedGroup.Loc.LOCAL : FeedGroup.Loc.REMOTE;
+    }
+
+    _updateStats(entry, event) {
+        assert(entry);
+        if (entry.loc === FeedGroup.Loc.REMOTE) {
+            entry.stats.index = Math.max(entry.stats.index, event.index);
+            if (event.index >= event.feed.length - 1 && this.isSynchronized())
+                this.emit('sync');
+        }
+    }
+
+}
+
+FeedGroup.Loc = Object.freeze({LOCAL: 0, REMOTE: 1});
+
+
 class DocumentClient extends FeedClient {
 
     constructor(opts) {
@@ -241,19 +308,27 @@ class DocumentClient extends FeedClient {
 
     async _setupDoc() {
         this.docFeeds = {};
+        this.docGroup = new FeedGroup(this, 
+            feed => feed.meta && feed.meta.type === 'docsync');
+
+        var pending = null;
 
         this.sync = new DocSync();
         this.sync.on('data', d => {
+            if (!d.changes && !this.docGroup.isSynchronized()) { pending = d; return; }
             var feed = d.changes ? this.docFeeds.changes : this.docFeeds.transient;
             if (feed) feed.append(d);
             else console.warn('DocSync message lost;', d);
         });
-        this.on('append', ev => {
-            if (ev.feed.meta && ev.feed.meta.type === 'docsync' &&
-                !Object.values(this.docFeeds).includes(ev.feed)) {
+        this.docGroup.on('feed:append', ev => {
+            if (ev.info.loc === FeedGroup.Loc.REMOTE)
                 this.sync.data(ev.data);
-            }
         });
+        this.docGroup.on('sync', () => {
+            this.emit('doc:sync');
+            var d = pending;
+            if (d) { pending = null; this.sync.emit('data', d); }
+        })
     }
 
     async _init() {
@@ -273,18 +348,30 @@ class DocumentClient extends FeedClient {
     }
 
     _tuneInForShouts() {
+        this.docGroup.on('feed:extension', (name, msg, peer) => {
+            console.log(`${name} %c${peer.stream.stream.id.slice(0,7)}`, 'color: green;');
+            if (name === 'shout') this.emit('shout');
+        });
+        /*
         this.crowd.on('feed:ready', feed => {
-            if (feed.meta.type === 'docsync') {
+            if (feed.meta && feed.meta.type === 'docsync') {
                 feed.on('extension', (name, msg, peer) => {
                     console.log(`${name} %c${peer.stream.stream.id.slice(0,7)}`, 'color: green;');
                     if (name === 'shout') this.emit('shout');
                 });
             }
-        })
+        });
+        */
     }
 
 }
 
 
+function ievery(iterable, predicate) {
+    for (let el of iterable) if (!predicate(el)) return false;
+    return true;
+}
 
-module.exports = {SwarmClient, FeedClient, DocumentClient};
+
+
+module.exports = {SwarmClient, FeedClient, FeedGroup, DocumentClient};

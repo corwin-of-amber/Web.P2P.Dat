@@ -38,8 +38,8 @@ class DocSync extends EventEmitter {
         return new DocumentSlot(this.docs, docName);
     }
 
-    path(docName, path=[]) {
-        return new DocumentSlot(this.docs, docName).path(path);
+    path(docName, ...path) {
+        return new DocumentSlot(this.docs, docName).path(...path);
     }
 
     object(docName, objectId) {

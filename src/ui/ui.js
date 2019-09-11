@@ -77,13 +77,13 @@ Vue.component('p2p.source-messages', {
     methods: {
         register(client) {
             var cb = ev => { this.messages.push(ev.data); };
-            client.on('append', cb);
+            client.on('feed:append', cb);
             this._registered = {client, cb};
         },
         unregister() {
             if (this._registered) {
                 var {client, cb} = this._registered;
-                client.removeListener('append', cb);
+                client.removeListener('feed:append', cb);
             }
         }
     }
