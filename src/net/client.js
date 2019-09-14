@@ -311,24 +311,31 @@ class DocumentClient extends FeedClient {
         this.docGroup = new FeedGroup(this, 
             feed => feed.meta && feed.meta.type === 'docsync');
 
-        var pending = null;
+        var outqueue = null, inqueue = [], engage = true;
 
         this.sync = new DocSync();
         this.sync.on('data', d => {
-            if (!d.changes && !this.docGroup.isSynchronized()) { pending = d; return; }
+            if (!d.changes && !engage) { outqueue = d; return; }
             var feed = d.changes ? this.docFeeds.changes : this.docFeeds.transient;
             if (feed) feed.append(d);
             else console.warn('DocSync message lost;', d);
         });
         this.docGroup.on('feed:append', ev => {
-            if (ev.info.loc === FeedGroup.Loc.REMOTE)
-                this.sync.data(ev.data);
+            if (!this.docGroup.isSynchronized()) engage = false;
+            if (ev.info.loc === FeedGroup.Loc.REMOTE) {
+                engage ? this.sync.data(ev.data)
+                       : inqueue.push(ev.data);
+            }
         });
         this.docGroup.on('sync', () => {
+            var d;
+            while (d = inqueue.shift()) this.sync.data(d);
             this.emit('doc:sync');
-            var d = pending;
-            if (d) { pending = null; this.sync.emit('data', d); }
-        })
+            engage = true;
+            if (outqueue) { this.sync.emit('data', outqueue); outqueue = null; }
+        });
+
+        this.isSynchronized = () => engage && this.docGroup.isSynchronized();
     }
 
     async _init() {
@@ -352,16 +359,6 @@ class DocumentClient extends FeedClient {
             console.log(`${name} %c${peer.stream.stream.id.slice(0,7)}`, 'color: green;');
             if (name === 'shout') this.emit('shout');
         });
-        /*
-        this.crowd.on('feed:ready', feed => {
-            if (feed.meta && feed.meta.type === 'docsync') {
-                feed.on('extension', (name, msg, peer) => {
-                    console.log(`${name} %c${peer.stream.stream.id.slice(0,7)}`, 'color: green;');
-                    if (name === 'shout') this.emit('shout');
-                });
-            }
-        });
-        */
     }
 
 }

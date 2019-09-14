@@ -47,10 +47,15 @@ class FirepadTreeMerge {
         return ret;
     }
 
+    recompose() {
+        return (this.operations.length === 0) ? new TextOperation()
+            : this.seq.reduce((o1, o2) => this._compose(o1, o2));
+    }
+
     getText() {
         if (this.operations.length === 0) return "";
 
-        var composed = this.seq.reduce((o1, o2) => this._compose(o1, o2));
+        var composed = this.recompose();
         assert(composed.ops.length === 1 && composed.ops[0].type === 'insert');
         return composed.ops[0].text;
     }

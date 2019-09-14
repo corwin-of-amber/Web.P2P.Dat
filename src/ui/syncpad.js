@@ -30,8 +30,8 @@ class SyncPad {
         this.slot = slot;
 
         this.firepad = new FirepadCore(this.editor, opts);
-        this.tm = new FirepadTreeMerge();
 
+        this.tm = undefined;
         this._outbox = undefined;
 
         (this._park = slot.park()).then(() => this._formLink());
@@ -196,15 +196,13 @@ class SyncPad {
     }
 
     _populate(operations) {
-        assert(this.tm.operations.length === 0);
+        assert(!this.tm);
 
         // Start a new doc; this clears history and does not emit 'change'
         this.editor.swapDoc(new CodeMirror.Doc('', this.editor.getOption('mode')));
 
-        for (let [index, entry] of this._withIds(operations).entries()) {
-            let operation = this.tm.insert(index, entry);
-            this.firepad.data({operation});
-        }
+        this.tm = FirepadTreeMerge.from(this._withIds(operations));
+        this.firepad.data({operation: this.tm.recompose()});
     }
 }
 
