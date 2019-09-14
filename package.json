@@ -7,11 +7,10 @@
   "license": "ISC",
   "dependencies": {
     "@geut/discovery-swarm-webrtc": "^1.2.0",
-    "automerge": "^0.11.0",
+    "automerge": "^0.12.1",
     "automerge-codemirror": "github:corwin-of-amber/automerge-codemirror",
     "automerge-slots": "github:corwin-of-amber/automerge-slots",
     "codemirror": "^5.48.2",
-    "dat-swarm-defaults": "^1.0.2",
     "firepad-core": "github:corwin-of-amber/firepad-core",
     "glob-all": "^3.1.0",
     "hypercore": "^7.5.0",
