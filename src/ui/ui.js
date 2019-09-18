@@ -205,23 +205,45 @@ Vue.component('p2p.list-of-feeds', {
 
 Vue.component('p2p.button-join', {
     props: ['channel'],
-    data: () => ({ pending: false, clientChannels: undefined }),
+    data: () => ({ status: undefined }),
     template: `
         <span class="p2p-button-join" :class="status">
+            <p2p.source-status ref="source" :channel="channel"/>
             <button @click="onClick()" :disabled="disabled">
                 <slot>Join</slot>
             </button>
             <label>{{status}}</label>
         </span>`,
     computed: {
+        disabled() { return this.status != 'disconnected' || !this._client(); }
+    },
+    mounted() {
+        this.$refs.source.$watch('status', (status) => {
+            this.status = status;
+        }, {immediate: true});
+    },
+    methods: {
+        _client() {
+            return this.$refs.source && this.$refs.source._client;
+        },
+        onClick() {
+            this.$refs.source.connect();
+        }
+    }
+});
+
+
+Vue.component('p2p.source-status', {
+    props: ['channel'],
+    data: () => ({ pending: null, clientChannels: undefined }),
+    template: `<span></span>`,
+    computed: {
         status() {
-            return this.joined ? "connected" :
-                (this.pending ? "connecting" : "disconnected");
+            return this.pending || (this.joined ? "connected" : "disconnected");
         },
         joined() {
             return this.clientChannels && !!this.clientChannels.has(this._channel);
         },
-        disabled() { return !this._client || this.status != 'disconnected'; },
         _channel() { return this.channel || 'lobby'; },
         _client() { return this.$root.clientState && 
                            this.$root.clientState.client; }
@@ -254,15 +276,32 @@ Vue.component('p2p.button-join', {
         },
         update() {
             this.clientChannels = new Set(this._client.swarm.channels);
+            if ((this.pending === 'connecting') === this.joined)  // sneaky
+                this.pending = null;
         },
-        async onClick() {
+        async connect() {
             var c = this._client;
             if (c) {
-                this.pending = true;
+                this._pending('connecting');
                 if (c.hub && !c.hub.opened) await c.reconnect();
                 c.join(this._channel, false);
-                setTimeout(() => { this.update(); this.pending = false; }, 5000);
             }
+        },
+        disconnect() {
+            var c = this._client;
+            if (c) {
+                this._pending('disconnecting');
+                c.close();
+            }
+        },
+        _pending(val) {
+            this.pending = val;
+            var upd = setInterval(() => this.update(), 500)
+            setTimeout(() => { clearInterval(upd); this.pending = null; }, 5000);
+        },
+        toggle() {
+            return (this.status === 'disconnected') ?
+                this.connect() : this.disconnect();
         }
     }
 });
