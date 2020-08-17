@@ -1,5 +1,13 @@
+const {Buffer} = require('buffer'),  // for Kremlin
+      process = require('process'),
+      require = () => ({});
+Object.assign(window, {Buffer, process, require});
+
 const {FeedClient, DocumentClient} = require('./src/net/client'),
       {App} = require('./src/ui/ui');
+
+import 'codemirror/lib/codemirror.css';
+import './src/ui/app.css';
 
 
 
@@ -106,7 +114,7 @@ async function main_syncpad() {
 
 
 
-if (typeof process !== 'undefined' && process.versions.nw)
+if (typeof process !== 'undefined' && process.versions && process.versions.nw)
     global.console = window.console;  // for debugging in nwjs
 
 if (typeof window !== 'undefined') {

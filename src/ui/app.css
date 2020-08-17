@@ -1,11 +1,4 @@
 
-span.object {
-    display: inline-block;
-    vertical-align: top;
-    padding: 2px;
-    outline: 1px solid #eee;
-}
-
 .p2p-list-of-feeds {
     font-size: 80%;
 }
@@ -14,12 +7,32 @@ span.object {
     max-width: 100%;
 }
 
-span.record.video div {
+.record.object {
+    display: inline-block;
+    vertical-align: top;
+    padding: 2px;
+    outline: 1px solid #eee;
+}
+
+.record.menu-open,
+.menu-open .record {
+    user-select: none;  /* to disable automatic selection on right click */
+}
+
+.record .record--key-value {
+    display: block;
+}
+
+.record .record--editable:focus {
+    outline: none;
+}
+
+.record.video div {
     display: inline-block;
     vertical-align: top;
 }
 
-span.record.video video {
+.record.video video {
     max-width: 80px;
     max-height: 60px;
 }

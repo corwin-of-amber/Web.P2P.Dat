@@ -2,7 +2,7 @@
   "name": "dat-p2p-crowd",
   "version": "1.0.0",
   "description": "",
-  "main": "doc.html",
+  "main": "build/kremlin/index.html",
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -10,6 +10,7 @@
     "automerge": "^0.12.1",
     "automerge-codemirror": "github:corwin-of-amber/automerge-codemirror",
     "automerge-slots": "github:corwin-of-amber/automerge-slots",
+    "buffer": "^5.6.0",
     "codemirror": "^5.48.2",
     "firepad-core": "github:corwin-of-amber/firepad-core",
     "glob-all": "^3.1.0",
@@ -26,6 +27,7 @@
     "sub-signalhub": "^1.0.1",
     "through2": "^3.0.1",
     "vue": "^2.6.10",
+    "vue-context": "^6.0.0",
     "webrtc-swarm": "github:corwin-of-amber/webrtc-swarm",
     "websocket": "^1.0.29",
     "wrtc": "^0.4.1"

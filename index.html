@@ -2,18 +2,17 @@
     <head>
         <meta charset="utf-8">
 
-        <script src="hyper.bundle.js"></script>
-        <link rel="stylesheet" type="text/css" href="./src/ui/app.css">
+        <script src="kremlin://hyper.js"></script>
     </head>
     <body>
         <div id="app">
-            <p2p.button-join channel="lobby"></p2p.button-join>
+            <p2p.button-join channel="doc2"></p2p.button-join>
             <p2p.list-of-peers ref="peers"></p2p.list-of-peers>
-            <p2p.list-of-messages ref="messages"></p2p.list-of-messages>
-            <p2p.message-input-box ref="send"></p2p.message-input-box>
-            <p2p.video-view ref="video"></p2p.video-view>
+            <p2p.documents-raw ref="documents" @doc:action="$emit('doc:action', $event)"></p2p.documents-raw>
+            <p2p.list-of-feeds ref="feeds"></p2p.list-of-feeds>
+            <preview-pane ref="preview"></document-preview>
         </div>
     </body>
 
-    <script>main_chat();</script>
+    <script>main_syncdoc();</script>
 </html>

@@ -1,6 +1,10 @@
-const Vue = require('vue/dist/vue'),
-      moment = require('moment'),
-      bidiText = typeof detectTextDir !== 'undefined' ? {detectTextDir} : require('./bidi-text');
+import Vue from 'vue/dist/vue';
+import VueContext from 'vue-context';
+import moment from 'moment';
+import * as bidiText from './bidi-text';
+
+import 'vue-context/dist/css/vue-context.css';
+import './menu.css';
 
 
 
@@ -234,7 +238,11 @@ Vue.component('p2p.button-join', {
 
 
 Vue.component('p2p.source-status', {
-    props: ['channel'],
+    props: {
+        channel: String,
+        updateInterval: {type: Number, default: 500},
+        connectTimeout: {type: Number, default: 25000}
+    },
     data: () => ({ pending: null, clientChannels: undefined }),
     template: `<span></span>`,
     computed: {
@@ -296,8 +304,9 @@ Vue.component('p2p.source-status', {
         },
         _pending(val) {
             this.pending = val;
-            var upd = setInterval(() => this.update(), 500)
-            setTimeout(() => { clearInterval(upd); this.pending = null; }, 5000);
+            var upd = setInterval(() => this.update(), this.updateInterval)
+            setTimeout(() => { clearInterval(upd); this.pending = null; },
+                this.connectTimeout);
         },
         toggle() {
             return (this.status === 'disconnected') ?
@@ -339,47 +348,70 @@ Vue.component('p2p.message-input-box', {
 
 
 Vue.component('p2p.documents-raw', {
-    data: () => ({ docs: [] }),
+    data: () => ({ docs: [], sync: undefined, menuOpen: undefined }),
     template: `
-        <div>
+        <div :class="{'menu-open': !!menuOpen}">
             <plain-list ref="list" v-slot="{item}">
                 <record-object :object="item"
-                               @select="selectDoc(item, $event)"/>
+                               @action="onAction(item, $event)"/>
             </plain-list>
+            <hook :receiver="sync" on="change" @change="update"/>
+            <p2p.document-context-menu ref="menu" @action="menuAction"
+                @close="menuClose"/>
         </div>`,
     mounted() {
         this.$root.$watch('clientState', (state) => {
-            this.unregister(); if (state) this.register(state.client);
+            if (state) this.sync = state.client.sync;
         }, {immediate: true});
         this.$refs.list.items = this.docs;
     },
     methods: {
-        register(client) {
-            var update = ({id, doc}) =>{
-                this.setDoc(id, doc);
-            };
-            client.sync.on('change', update);
-            this._registered = {sync: client.sync, update};
-        },
-        unregister() {
-            if (this._registered) {
-                var {sync, update} = this._registered;
-                sync.removeListener('change', update);
-            }
-        },
+        update({id, doc}) { this.setDoc(id, doc); },
         setDoc(id, doc) {
-            for (let i = 0; i < this.docs.length; i++) {
-                if (this.docs[i].id === id) {
-                    this.docs.splice(i, 1, {id, doc});
-                    return;
-                }
-            }
-            this.docs.push({id, doc});
+            var idx = this.docs.findIndex(d => d.id == id);
+            if (idx >= 0)
+                this.docs.splice(idx, 1, {id, doc});
+            else
+                this.docs.push({id, doc});
         },
-        selectDoc(item, event) {
-            this.$emit('select',
-                Object.assign({docId: item.id, doc: item.doc}, event));
-        }
+        onAction(item, action) {
+            switch (action.type) {
+            case 'input': this.sync.object(item.id, action.object).path(action.key).set(action.value); break;
+            case 'menu':
+                action.$event.preventDefault();
+                Object.assign(this.menuOpen = {}, {item, ...action});
+                // ^ fields of `menuOpen` should not be reactive
+                this.$refs.menu.open(action.$event);
+                break;
+            case 'prop-create':
+            case 'prop-delete':
+                console.log(action, this.menuOpen);
+                break;
+            }
+            this.$emit('doc:action', {docId: item.id, doc: item.doc, ...action});
+        },
+        menuAction(action) {
+            if (this.menuOpen)
+                this.onAction(this.menuOpen.item, action);
+            console.log(action, this.menuOpen);
+        },
+        menuClose() { setTimeout(() => this.menuOpen = undefined, 1); }
+    },
+    components: {
+        hook: eventHook()
+    }
+});
+
+Vue.component('p2p.document-context-menu', {
+    template: `
+        <vue-context ref="m" @close="$emit('close')">
+            <li><a name="prop-create" @click="action">Create property</a></li>
+            <li><a name="prop-delete" @click="action">Delete property</a></li>
+        </vue-context>`,
+    components: {VueContext},
+    methods: {
+        open(ev) { this.$refs.m.open(ev); },
+        action(ev) { this.$emit('action', {type: ev.currentTarget.name}); }
     }
 });
 
@@ -559,6 +591,7 @@ Vue.component('syncpad', {
     }
 });
 
+// - unused; superseded by `syncpad`
 Vue.component('automerge-codemirror', {
     data: () => ({ slot: undefined }),
     template: `<codemirror ref="editor"/>`,
@@ -659,8 +692,11 @@ const automerge = require('automerge');
 Vue.component('record-object', {
     props: ['object'],
     template: `
-        <span class="record" :class="kind">
-            <template v-if="kind === 'text/automerge' || kind == 'text/firepad'">
+        <span class="record" :class="kind" @contextmenu.stop="menu">
+            <template v-if="kind === 'text/plain'">
+                <record-text :value="object" @action="fwd($event)"/>
+            </template>
+            <template v-else-if="kind === 'text/automerge' || kind == 'text/firepad'">
                 <button @click="select()">Text</button>
             </template>
             <template v-else-if="kind === 'file'">
@@ -670,10 +706,10 @@ Vue.component('record-object', {
                 <p2p.video-view :videoincoming="coerced()"/>
             </template>
             <template v-else-if="kind === 'object'">
-                <span v-for="(v,k) in object">
-                    {{k}}: <record-object :object="v"
-                                          @select="$emit('select', $event)"/>
-                    <br/>
+                <span class="record--key-value" v-for="(v,k) in object">
+                    <span class="record--key">{{k}}</span><span class="record--key-sep">:</span>
+                    <record-object :object="v"
+                                   @action="fwd($event, {object, key: k})"/>
                 </span>
             </template>
             <template v-else>{{object}}</template>
@@ -683,11 +719,12 @@ Vue.component('record-object', {
         kind() {
             var o = this.object;
             // XXX
-            if (o instanceof automerge.Text)           return 'text/automerge';
+            if      (typeof o === 'string')            return 'text/plain';
+            else if (o instanceof automerge.Text)      return 'text/automerge';
             else if (o && o.$type === 'FirepadShare')  return 'text/firepad'
             else if (o && o.$type === 'FileShare')     return 'file';
             else if (o && o.$type === 'VideoIncoming') return 'video';
-            else if (typeof(o) === 'object')           return 'object';
+            else if (typeof o === 'object')            return 'object';
             else return 'value';
         },
         objectId() {
@@ -696,7 +733,13 @@ Vue.component('record-object', {
     },
     methods: {
         select() {
-            this.$emit('select', {target: this});
+            this.$emit('action', {type: 'select', target: this});
+        },
+        menu(ev) {
+            this.$emit('action', {type: 'menu', target: this, $event: ev});
+        },
+        fwd(action, props=undefined) {
+            this.$emit('action', {...props, ...action});
         },
         coerced() {
             switch (this.kind) {
@@ -705,6 +748,36 @@ Vue.component('record-object', {
                 case 'file': return FileShare.from(this.object);
                 default: return this.object;
             }
+        }
+    }
+});
+
+Vue.component('record-text', {
+    props: ['value'],
+    data: () => ({editing: false}),
+    template: `
+        <span class="record--editable" :class="{editing}" 
+              :contenteditable="editing" @click="open"
+              @blur="commit" @keypress="keyHandler">
+            {{value}}
+        </span>`,
+    methods: {
+        open() {
+            if (!this.editing) {
+                this.editing = true;
+                setTimeout(() => this.$el.focus(), 0);
+                this.$emit('action', {type: 'edit:start'});
+            }
+        },
+        commit() {
+            if (this.editing) {
+                this.$emit('action', {type: 'input', value: this.$el.innerText});
+                this.editing = false;
+            }
+        },
+        keyHandler(ev) {
+            if (ev.key === 'Enter')
+                this.commit();
         }
     }
 });
@@ -725,6 +798,12 @@ class App {
         this.vue = new Vue({
             el: dom,
             data: {clientState: undefined}
+        });
+        this.vue.$on('doc:action', ev => {
+            switch (ev.type) {
+            case 'select':
+                this.vue.$refs.preview.select(ev); break;
+            }
         });
     }
     attach(client) {

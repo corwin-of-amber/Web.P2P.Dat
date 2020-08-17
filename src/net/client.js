@@ -11,7 +11,7 @@ const assert = require('assert'),
 
 const deferred = require('../core/deferred'),
       {FeedCrowd} = require('./crowd'),
-      {DocSync} = require('./merge');
+      {DocSync} = require('./docsync');
 
 
 
