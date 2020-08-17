@@ -3,7 +3,7 @@ const _ = require('lodash'),
       through2 = require('through2');
 
 const automerge = require('automerge'),
-      {FirepadCore} = require('firepad-core'),
+      {FirepadCore, TextOperation} = require('firepad-core'),
       {FirepadTreeMerge} = require('../addons/firepad-conflow');
 
 
@@ -216,6 +216,11 @@ class FirepadShare {
 
     static from(props) {
         return new FirepadShare(props.operations, props.cursors);
+    }
+
+    static fromText(text) {
+        var o = [{o: new TextOperation().insert(text)}];
+        return new FirepadShare([JSON.stringify(o)]);
     }
 
     getValue() {

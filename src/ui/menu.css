@@ -6,6 +6,7 @@ ul[role=menu] {
     line-height: 15pt;
     padding: 2px 0;
     background: #eeee;
+    user-select: none;
 }
 
 ul[role=menu] > li > a {
@@ -16,6 +17,13 @@ ul[role=menu] > li > a:hover {
     background: rgb(46, 103, 160);
     color: white;
     cursor: default;
+}
+
+ul[role=menu] > li.disabled {
+    pointer-events: none;
+}
+ul[role=menu] > li.disabled > a {
+    color: #ccc;
 }
 
 button:focus, button:active {

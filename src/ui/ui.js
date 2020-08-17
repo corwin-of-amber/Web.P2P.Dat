@@ -1,3 +1,4 @@
+import assert from 'assert';
 import Vue from 'vue/dist/vue';
 import VueContext from 'vue-context';
 import moment from 'moment';
@@ -356,8 +357,8 @@ Vue.component('p2p.documents-raw', {
                                @action="onAction(item, $event)"/>
             </plain-list>
             <hook :receiver="sync" on="change" @change="update"/>
-            <p2p.document-context-menu ref="menu" @action="menuAction"
-                @close="menuClose"/>
+            <p2p.document-context-menu ref="menu" :for="menuOpen"
+                @action="menuAction" @close="menuClose"/>
         </div>`,
     mounted() {
         this.$root.$watch('clientState', (state) => {
@@ -375,8 +376,11 @@ Vue.component('p2p.documents-raw', {
                 this.docs.push({id, doc});
         },
         onAction(item, action) {
+            var o = action.object && this.sync.object(item.id, action.object);
             switch (action.type) {
-            case 'input': this.sync.object(item.id, action.object).path(action.key).set(action.value); break;
+            case 'input':
+                o.path(action.key).set(action.value);
+                break;
             case 'menu':
                 action.$event.preventDefault();
                 Object.assign(this.menuOpen = {}, {item, ...action});
@@ -384,18 +388,39 @@ Vue.component('p2p.documents-raw', {
                 this.$refs.menu.open(action.$event);
                 break;
             case 'prop-create':
-            case 'prop-delete':
-                console.log(action, this.menuOpen);
+                o.change(d => d['new-key'] = 'new-value');
                 break;
+            case 'prop-delete':
+                o.change(d => delete d[action.key]);
+                break;
+            case 'prop-rename':
+                assert(action.value !== action.old);
+                o.change(d => {
+                    d[action.value] = d[action.old];
+                    delete d[action.old];  // changes order :(
+                });
+                break;
+            case 'elem-create':
+                o.change(d => d.push('new-element'));
+                break;
+            case 'elem-delete':
+                o.change(d => d.splice(action.key, 1));
+                break;
+            case 'make-syncpad':
+                var slot = o.path(action.key);
+                slot.set(syncpad.FirepadShare.fromText(slot.get().toString()));
+                break;         // ^ XXX
             }
             this.$emit('doc:action', {docId: item.id, doc: item.doc, ...action});
         },
         menuAction(action) {
             if (this.menuOpen)
-                this.onAction(this.menuOpen.item, action);
-            console.log(action, this.menuOpen);
+                this.onAction(this.menuOpen.item, {...this.menuOpen, ...action});
         },
-        menuClose() { setTimeout(() => this.menuOpen = undefined, 1); }
+        menuClose() {
+            this.menuOpen = undefined;
+            window.getSelection().collapseToStart();  // prevent sporadic mark of text
+        }
     },
     components: {
         hook: eventHook()
@@ -403,12 +428,27 @@ Vue.component('p2p.documents-raw', {
 });
 
 Vue.component('p2p.document-context-menu', {
+    props: ['for'],
     template: `
         <vue-context ref="m" @close="$emit('close')">
+          <template v-if="isObject">
             <li><a name="prop-create" @click="action">Create property</a></li>
             <li><a name="prop-delete" @click="action">Delete property</a></li>
+          </template>
+          <template v-if="isArray">
+            <li><a name="elem-create" @click="action">Create element</a></li>
+            <li><a name="elem-delete" @click="action">Delete element</a></li>
+          </template>
+          <li><a name="make-syncpad" @click="action">New text document</a></li>
+          <li><a name="make-fileshare" @click="action">New file share</a></li>
+          <li><a name="make-videoout" @click="action">New video share</a></li>
         </vue-context>`,
     components: {VueContext},
+    computed: {
+        has() { return this.for && this.for.object; },
+        isArray() { return this.has && Array.isArray(this.for.object); },
+        isObject() { return this.has && !this.isArray; }
+    },
     methods: {
         open(ev) { this.$refs.m.open(ev); },
         action(ev) { this.$emit('action', {type: ev.currentTarget.name}); }
@@ -706,8 +746,10 @@ Vue.component('record-object', {
                 <p2p.video-view :videoincoming="coerced()"/>
             </template>
             <template v-else-if="kind === 'object'">
-                <span class="record--key-value" v-for="(v,k) in object">
-                    <span class="record--key">{{k}}</span><span class="record--key-sep">:</span>
+                <span class="record--key-value" v-for="(v,k) in object"
+                      @contextmenu.stop="menu($event, {object, key: k})">
+                    <record-text :value="k" class="record--key"
+                         @action="renameProp($event, {object, key: k})"/><span class="record--key-sep">:</span>
                     <record-object :object="v"
                                    @action="fwd($event, {object, key: k})"/>
                 </span>
@@ -735,14 +777,22 @@ Vue.component('record-object', {
         select() {
             this.$emit('action', {type: 'select', target: this});
         },
-        menu(ev) {
-            this.$emit('action', {type: 'menu', target: this, $event: ev});
+        menu(ev, props) {
+            this.$emit('action', {type: 'menu', ...props, target: this, $event: ev});
+        },
+        renameProp(action, props) {
+            switch (action.type) {
+            case 'input':
+                this.$emit('action', {...props, ...action, type: 'prop-rename'});
+                break;
+            }
         },
         fwd(action, props=undefined) {
             this.$emit('action', {...props, ...action});
         },
         coerced() {
             switch (this.kind) {
+                // XXX
                 case 'text/firepad': return FirepadShare.from(this.object);
                 case 'video': return VideoIncoming.from(this.object);
                 case 'file': return FileShare.from(this.object);
@@ -758,26 +808,27 @@ Vue.component('record-text', {
     template: `
         <span class="record--editable" :class="{editing}" 
               :contenteditable="editing" @click="open"
-              @blur="commit" @keypress="keyHandler">
-            {{value}}
-        </span>`,
+              @blur="commit" @keypress="keyHandler">{{value}}</span>`,
     methods: {
         open() {
-            if (!this.editing) {
+            if (!this.editing && typeof this.value == 'string') {
                 this.editing = true;
                 setTimeout(() => this.$el.focus(), 0);
                 this.$emit('action', {type: 'edit:start'});
             }
         },
         commit() {
-            if (this.editing) {
-                this.$emit('action', {type: 'input', value: this.$el.innerText});
-                this.editing = false;
+            var value;
+            if (this.editing && (value = this.$el.innerText) !== this.value) {
+                this.$emit('action', {type: 'input', value, old: this.value});
             }
+            this.editing = false;
         },
         keyHandler(ev) {
-            if (ev.key === 'Enter')
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
                 this.commit();
+            }
         }
     }
 });
