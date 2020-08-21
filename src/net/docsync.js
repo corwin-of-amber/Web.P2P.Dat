@@ -1,7 +1,7 @@
 const automerge = require('automerge'),
       {EventEmitter} = require('events'),
       {DocumentSlot} = require('automerge-slots'),
-      options = require('../core/options');
+      mergeOptions = require('merge-options');
 
 
 
@@ -14,7 +14,7 @@ class DocSync extends EventEmitter {
     constructor(opts) {
         super();
 
-        this.opts = options(opts, DEFAULT_OPTIONS);
+        this.opts = mergeOptions(DEFAULT_OPTIONS, opts);
 
         this.docs = new automerge.DocSet();
         this.protocol = new automerge.Connection(this.docs, msg => this.sendMsg(msg));

@@ -3,7 +3,8 @@ const {Buffer} = require('buffer'),  // for Kremlin
       require = () => ({});
 Object.assign(window, {Buffer, process, require});
 
-const {FeedClient, DocumentClient} = require('./src/net/client'),
+const {FeedClient} = require('./src/net/client'),
+      {DocumentClient} = require('./src/net/docs'),
       {App} = require('./src/ui/ui');
 
 import 'codemirror/lib/codemirror.css';

@@ -31,13 +31,13 @@ Vue.component('p2p.source-peers', {
     },
     methods: {
         updatePeers(client) {
-            this.peers.splice(0, Infinity, ...client.peers.keys());
+            this.peers.splice(0, Infinity, ...client.getPeers().map(p => p.id));
         },
         register(client) {
             client.deferred.init.then(() => {
                 var cb = () => this.updatePeers(client);
-                client.on('peer-connect', cb);
-                client.on('peer-disconnect', cb);
+                client.on('peer:join', cb);
+                client.on('peer:leave', cb);
                 cb();
                 this._registered = {client, cb};
             })
@@ -45,8 +45,8 @@ Vue.component('p2p.source-peers', {
         unregister() {
             if (this._registered) {
                 var {client, cb} = this._registered;
-                client.removeListener('peer-connect', cb);
-                client.removeListener('peer-disconnect', cb);
+                client.removeListener('peer:join', cb);
+                client.removeListener('peer:leave', cb);
             }
         }
     }
@@ -56,7 +56,9 @@ Vue.component('p2p.list-of-peers', {
     template: `
         <div>
             <p2p.source-peers ref="source"/>
-            <plain-list ref="list"/>
+            <plain-list ref="list" v-slot="{item}">
+                {{item.toString('hex')}}
+            </plain-list>
         </div>
     `,
     mounted() {
@@ -248,10 +250,12 @@ Vue.component('p2p.source-status', {
     template: `<span></span>`,
     computed: {
         status() {
+            if ((this.pending === 'connecting') === this.joined)  // sneaky
+                this.pending = null;
             return this.pending || (this.joined ? "connected" : "disconnected");
         },
         joined() {
-            return this.clientChannels && !!this.clientChannels.has(this._channel);
+            return this.clientChannels && this.clientChannels.includes(this._channel);
         },
         _channel() { return this.channel || 'lobby'; },
         _client() { return this.$root.clientState && 
@@ -266,27 +270,10 @@ Vue.component('p2p.source-status', {
     methods: {
         async register(client) {
             await client.deferred.init;
-            var update = () => this.update();
-            update();
-            client.hub.on('open', update);
-            client.swarm.on('open', update);
-            client.on('disconnect', update);
-            this._registered = {client, swarm: client.swarm, hub: client.hub, update};
+            this.clientChannels = client.activeChannels.l;
         },
         unregister() {
             this.clientChannels = null;
-            if (this._registered) {
-                var {client, swarm, hub, update} = this._registered;
-                hub.removeListener('open', update);
-                swarm.removeListener('open', update);
-                client.removeListener('disconnect', update);
-                this._registered = undefined;
-            }
-        },
-        update() {
-            this.clientChannels = new Set(this._client.swarm.channels);
-            if ((this.pending === 'connecting') === this.joined)  // sneaky
-                this.pending = null;
         },
         async connect() {
             var c = this._client;
@@ -305,8 +292,8 @@ Vue.component('p2p.source-status', {
         },
         _pending(val) {
             this.pending = val;
-            var upd = setInterval(() => this.update(), this.updateInterval)
-            setTimeout(() => { clearInterval(upd); this.pending = null; },
+            //var upd = setInterval(() => this.update(), this.updateInterval)
+            setTimeout(() => { /*clearInterval(upd);*/ this.pending = null; },
                 this.connectTimeout);
         },
         toggle() {
@@ -631,7 +618,8 @@ Vue.component('syncpad', {
     }
 });
 
-// - unused; superseded by `syncpad`
+// - obsolete; superseded by `syncpad`
+/*
 Vue.component('automerge-codemirror', {
     data: () => ({ slot: undefined }),
     template: `<codemirror ref="editor"/>`,
@@ -643,6 +631,7 @@ Vue.component('automerge-codemirror', {
         });
     }
 });
+*/
 
 Vue.component('codemirror', {
     template: `<div></div>`,
