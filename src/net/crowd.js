@@ -1,10 +1,10 @@
-const hypercore = require('hypercore'),
-      Protocol = require('hypercore-protocol');
+import { EventEmitter } from 'events';
+import mergeOptions from 'merge-options';
 
-const {EventEmitter} = require('events'),
-      mergeOptions = require('merge-options');
+import hypercore from 'hypercore'
+import Protocol from 'hypercore-protocol';
 
-const munch = require('../core/munch');
+import munch from '../core/munch';
 
 
 
@@ -34,9 +34,9 @@ class FeedCrowd extends EventEmitter {
 
     get feeds() { return this.localFeeds.concat(this.remoteFeeds); }
 
-    replicate(opts) {
+    replicate(initiator, opts) {
         opts = mergeOptions({extensions: this.opts.extensions}, opts);
-        var wire = new Wire(this.opts.key, opts)
+        var wire = new Wire(initiator, this.opts.key, opts)
             .on('handshake', () => this._populate(wire))
             .on('control', info => this._control(wire, info))
             .on('error', e => this.emit('error', e, wire))
@@ -119,7 +119,6 @@ class FeedCrowd extends EventEmitter {
     }
 
     _control(wire, info) {
-        console.log('control', wire.id, info);
         for (let entry of info.have || []) {
             let {key, opts, meta} = entry;
             if (!this.localFeeds.some(x => keyHex(x) === key))  // skip local
@@ -160,13 +159,14 @@ class Wire extends Protocol {
 
     /**
      * Constructs a feed-sharing connection protocol.
+     * @param {boolean} initiator whether this side of the connection is initiating
+     *   (used by handshake protocol)
      * @param {Buffer} key encryption key
      * @param {object} opts options passed to Protocol
      */
-    constructor(key, opts) {
-        super(opts);
-        this.metastream = this.feed(key);
-        this.metastream.on('data', (msg) => this._onData(msg));
+    constructor(initiator, key, opts) {
+        super(initiator, opts);
+        this.metastream = this.open(key, {ondata: msg => this._onData(msg)});
         this._index = 0;
         this._shared = new WeakSet();  // feeds that have been shared
     }
@@ -184,7 +184,7 @@ class Wire extends Protocol {
         if (!this._shared.has(feed)) {
             this._validateExtensions(feed);
             this._shared.add(feed);
-            feed.replicate({stream: this, live: true});
+            feed.replicate(this, {live: true});
         }
     }
 

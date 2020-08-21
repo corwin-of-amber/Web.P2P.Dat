@@ -211,7 +211,7 @@ class FeedClient extends SwarmClient {
     _stream(info) {
         console.log('stream', info);
         try {
-            var wire = this.crowd.replicate({id: info.id});
+            var wire = this.crowd.replicate(info.initiator, {id: info.id});
             this.peers.set(info.id, wire);
             return wire.chunked();
         }
