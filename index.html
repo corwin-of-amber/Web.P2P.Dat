@@ -6,9 +6,10 @@
     </head>
     <body>
         <div id="app">
-            <p2p.button-join channel="doc2"></p2p.button-join>
+            <p2p.button-join ref="join" channel="doc2"></p2p.button-join>
             <p2p.list-of-peers ref="peers"></p2p.list-of-peers>
-            <p2p.documents-raw ref="documents" @doc:action="$emit('doc:action', $event)"></p2p.documents-raw>
+            <p2p.documents-raw ref="documents" :editable="ready"
+                @doc:action="$emit('doc:action', $event)"></p2p.documents-raw>
             <p2p.list-of-feeds ref="feeds"></p2p.list-of-feeds>
             <preview-pane ref="preview"></document-preview>
         </div>

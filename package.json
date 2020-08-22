@@ -15,6 +15,7 @@
     "automerge-slots": "github:corwin-of-amber/automerge-slots",
     "buffer": "^5.6.0",
     "codemirror": "^5.48.2",
+    "cuid": "^2.1.8",
     "duplexify": "^4.1.1",
     "firepad-core": "https://github.com/corwin-of-amber/firepad-core/releases/download/core-v1.5.10/firepad-core-1.5.10.tgz",
     "glob-all": "^3.2.1",

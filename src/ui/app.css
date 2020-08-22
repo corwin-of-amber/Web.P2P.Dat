@@ -42,6 +42,7 @@
     display: block;
     min-width: .5em;
     min-height: .7em;
+    cursor: text;
 }
 
 .record .record--editable:focus {

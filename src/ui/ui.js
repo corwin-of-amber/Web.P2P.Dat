@@ -1,7 +1,9 @@
 import assert from 'assert';
 import Vue from 'vue/dist/vue';
 import VueContext from 'vue-context';
+import cuid from 'cuid';
 import moment from 'moment';
+
 import * as bidiText from './bidi-text';
 
 import 'vue-context/dist/css/vue-context.css';
@@ -222,7 +224,8 @@ Vue.component('p2p.button-join', {
             <label>{{status}}</label>
         </span>`,
     computed: {
-        disabled() { return this.status != 'disconnected' || !this._client(); }
+        disabled() { return this.status != 'disconnected' || !this._client(); },
+        ready() { return this.$refs.source && this.$refs.source.ready; }
     },
     mounted() {
         this.$refs.source.$watch('status', (status) => {
@@ -246,7 +249,7 @@ Vue.component('p2p.source-status', {
         updateInterval: {type: Number, default: 500},
         connectTimeout: {type: Number, default: 25000}
     },
-    data: () => ({ pending: null, clientChannels: undefined }),
+    data: () => ({ pending: null, clientChannels: undefined, ready: false }),
     template: `<span></span>`,
     computed: {
         status() {
@@ -270,6 +273,7 @@ Vue.component('p2p.source-status', {
     methods: {
         async register(client) {
             await client.deferred.init;
+            this.ready = true;
             this.clientChannels = client.activeChannels.l;
         },
         unregister() {
@@ -336,6 +340,7 @@ Vue.component('p2p.message-input-box', {
 
 
 Vue.component('p2p.documents-raw', {
+    props: ['editable'],
     data: () => ({ docs: [], sync: undefined, menuOpen: undefined }),
     template: `
         <div :class="{'menu-open': !!menuOpen}">
@@ -343,7 +348,7 @@ Vue.component('p2p.documents-raw', {
                 <record-object :object="item"
                                @action="onAction(item, $event)"/>
             </plain-list>
-            <div><button @click="create">+</button></div>
+            <div><button :disabled="!editable" @click="create">+</button></div>
             <hook :receiver="sync" on="change" @change="update"/>
             <p2p.document-context-menu ref="menu" :for="menuOpen"
                 @action="menuAction" @close="menuClose"/>
@@ -355,7 +360,7 @@ Vue.component('p2p.documents-raw', {
         this.$refs.list.items = this.docs;
     },
     methods: {
-        create() { },
+        create() { this.sync.create(this._freshId()); },
         update({id, doc}) { this.setDoc(id, doc); },
         setDoc(id, doc) {
             var idx = this.docs.findIndex(d => d.id == id);
@@ -365,10 +370,7 @@ Vue.component('p2p.documents-raw', {
                 this.docs.push({id, doc});
         },
         onAction(item, action) {
-            var o = action.object && this.sync.object(item.id, action.object),
-                t = action.target && action.target.kind === 'object' &&
-                    this.sync.object(item.id, action.target.object);
-                slot = o && action.key && o.path(action.key);
+            var {o, t, slot} = this._locate(item, action);
             switch (action.type) {
             case 'input':
                 o.path(action.key).set(action.value);
@@ -376,7 +378,7 @@ Vue.component('p2p.documents-raw', {
             case 'menu':
                 action.$event.preventDefault();
                 Object.assign(this.menuOpen = {}, {item, ...action});
-                // ^ fields of `menuOpen` should not be reactive
+                // ^ fields of `menuOpen` should be non-reactive
                 this.$refs.menu.open(action.$event);
                 break;
             case 'prop-create':
@@ -393,7 +395,7 @@ Vue.component('p2p.documents-raw', {
                 });
                 break;
             case 'elem-create':
-                (t || o).change(d => d.push('new-element'));
+                (t || o).change(d => d.push(''));
                 break;
             case 'elem-delete':
                 o.change(d => d.splice(action.key, 1));
@@ -419,10 +421,24 @@ Vue.component('p2p.documents-raw', {
             this.menuOpen = undefined;
             window.getSelection().collapseToStart();  // prevent sporadic mark of text
         },
+        _freshId() {
+            return cuid();
+        },
         _freshKey(obj) {
-            for (let i = 0;;i++) {
+            for (let i = 0;; i++) {
                 let k = `key${i}`;
                 if (!obj.hasOwnProperty(k)) return k;
+            }
+        },
+        _locate(item, action) {
+            var o = action.object, t = action.target, key = action.key;
+            if (o === item) {
+                return {t: this.sync.path(item.id)};
+            }
+            else {
+                o = o && this.sync.object(item.id, o);
+                t = t && t.kind === 'object' && this.sync.object(item.id, t.object);
+                return {o, t, slot: o && key && o.path(key)};
             }
         }
     },
@@ -460,9 +476,11 @@ Vue.component('p2p.document-context-menu', {
         hasKey() { return this.for && this.for.key != null; },
         isArray() { return this.has && Array.isArray(this.for.object); },
         isObject() { return this.has && !this.isArray; },
-        hasT() { return this.for && this.for.target; },
-        isArrayT() { return this.hasT && Array.isArray(this.for.target.object); },
-        isObjectT() { return this.hasT && !this.isArrayT; }
+        hasT() { return this.for && this.for.target && 
+                        typeof this.for.target.object === 'object'; },
+        isArrayT() { return this.hasT ? Array.isArray(this.for.target.object)
+                                      : this.isArray },
+        isObjectT() { return this.hasT ? !this.isArrayT : this.isObject; }
     },
     methods: {
         open(ev) { this.$refs.m.open(ev); },
@@ -873,7 +891,10 @@ class App {
     constructor(dom) {
         this.vue = new Vue({
             el: dom,
-            data: {clientState: undefined}
+            data: {clientState: undefined},
+            computed: {
+                ready() { return this.clientState && this.$refs.join.ready; }
+            }
         });
         this.vue.$on('doc:action', ev => {
             switch (ev.type) {
