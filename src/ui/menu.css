@@ -1,6 +1,7 @@
 /* Lean, mean context menu (for use with VueContext) */
 
-ul[role=menu] {
+ul.v-context,
+ul.v-context ul {
     font-family: sans-serif;
     font-size: 10pt;
     line-height: 15pt;
@@ -9,23 +10,24 @@ ul[role=menu] {
     user-select: none;
 }
 
-ul[role=menu] > li > a {
+ul.v-context > li > a,
+ul.v-context ul > li > a {
     padding: 1px 1rem;
 }
 
-ul[role=menu] > li > a:hover {
+ul.v-context > li > a:hover,
+ul.v-context ul > li > a:hover {
     background: rgb(46, 103, 160);
     color: white;
     cursor: default;
 }
 
-ul[role=menu] > li.disabled {
+ul.v-context > li[disabled],
+ul.v-context ul > li[disabled] {
     pointer-events: none;
 }
-ul[role=menu] > li.disabled > a {
-    color: #ccc;
-}
 
-button:focus, button:active {
-    outline: none;
+ul.v-context > li[disabled] > a,
+ul.v-context ul > li[disabled] > a {
+    color: #ccc;
 }

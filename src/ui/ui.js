@@ -343,6 +343,7 @@ Vue.component('p2p.documents-raw', {
                 <record-object :object="item"
                                @action="onAction(item, $event)"/>
             </plain-list>
+            <div><button @click="create">+</button></div>
             <hook :receiver="sync" on="change" @change="update"/>
             <p2p.document-context-menu ref="menu" :for="menuOpen"
                 @action="menuAction" @close="menuClose"/>
@@ -354,6 +355,7 @@ Vue.component('p2p.documents-raw', {
         this.$refs.list.items = this.docs;
     },
     methods: {
+        create() { },
         update({id, doc}) { this.setDoc(id, doc); },
         setDoc(id, doc) {
             var idx = this.docs.findIndex(d => d.id == id);
@@ -363,7 +365,10 @@ Vue.component('p2p.documents-raw', {
                 this.docs.push({id, doc});
         },
         onAction(item, action) {
-            var o = action.object && this.sync.object(item.id, action.object);
+            var o = action.object && this.sync.object(item.id, action.object),
+                t = action.target && action.target.kind === 'object' &&
+                    this.sync.object(item.id, action.target.object);
+                slot = o && action.key && o.path(action.key);
             switch (action.type) {
             case 'input':
                 o.path(action.key).set(action.value);
@@ -375,7 +380,7 @@ Vue.component('p2p.documents-raw', {
                 this.$refs.menu.open(action.$event);
                 break;
             case 'prop-create':
-                o.change(d => d['new-key'] = 'new-value');
+                (t || o).change(d => d[this._freshKey(d)] = '');
                 break;
             case 'prop-delete':
                 o.change(d => delete d[action.key]);
@@ -388,14 +393,20 @@ Vue.component('p2p.documents-raw', {
                 });
                 break;
             case 'elem-create':
-                o.change(d => d.push('new-element'));
+                (t || o).change(d => d.push('new-element'));
                 break;
             case 'elem-delete':
                 o.change(d => d.splice(action.key, 1));
                 break;
+            case 'make-object':
+                if (slot) slot.set({});
+                break;
+            case 'make-array':
+                if (slot) slot.set([]);
+                break;
             case 'make-syncpad':
-                var slot = o.path(action.key);
-                slot.set(syncpad.FirepadShare.fromText(slot.get().toString()));
+                if (slot)
+                    slot.set(syncpad.FirepadShare.fromText(slot.get().toString()));
                 break;         // ^ XXX
             }
             this.$emit('doc:action', {docId: item.id, doc: item.doc, ...action});
@@ -407,6 +418,12 @@ Vue.component('p2p.documents-raw', {
         menuClose() {
             this.menuOpen = undefined;
             window.getSelection().collapseToStart();  // prevent sporadic mark of text
+        },
+        _freshKey(obj) {
+            for (let i = 0;;i++) {
+                let k = `key${i}`;
+                if (!obj.hasOwnProperty(k)) return k;
+            }
         }
     },
     components: {
@@ -418,23 +435,34 @@ Vue.component('p2p.document-context-menu', {
     props: ['for'],
     template: `
         <vue-context ref="m" @close="$emit('close')">
-          <template v-if="isObject">
-            <li><a name="prop-create" @click="action">Create property</a></li>
-            <li><a name="prop-delete" @click="action">Delete property</a></li>
-          </template>
-          <template v-if="isArray">
-            <li><a name="elem-create" @click="action">Create element</a></li>
-            <li><a name="elem-delete" @click="action">Delete element</a></li>
-          </template>
-          <li><a name="make-syncpad" @click="action">New text document</a></li>
-          <li><a name="make-fileshare" @click="action">New file share</a></li>
-          <li><a name="make-videoout" @click="action">New video share</a></li>
+          <li v-if="isObjectT">
+            <a name="prop-create" @click="action">Create property</a></li>
+          <li v-if="isObject && hasKey">
+            <a name="prop-delete" @click="action">Delete property</a></li>
+          <li v-if="isArrayT">
+            <a name="elem-create" @click="action">Create element</a></li>
+          <li v-if="isArray && hasKey">
+            <a name="elem-delete" @click="action">Delete element</a></li>
+          <li class="v-context__sub" :disabled="!has">
+            <a>New</a>
+            <ul class="v-context" role="menu">
+              <li><a name="make-object" @click="action">Object</a></li>
+              <li><a name="make-array" @click="action">Array</a></li>
+              <li><a name="make-syncpad" @click="action">Text document</a></li>
+              <li><a name="make-fileshare" @click="action">File share</a></li>
+              <li><a name="make-videoout" @click="action">Video share</a></li>
+            </ul>
+          </li>
         </vue-context>`,
     components: {VueContext},
     computed: {
         has() { return this.for && this.for.object; },
+        hasKey() { return this.for && this.for.key != null; },
         isArray() { return this.has && Array.isArray(this.for.object); },
-        isObject() { return this.has && !this.isArray; }
+        isObject() { return this.has && !this.isArray; },
+        hasT() { return this.for && this.for.target; },
+        isArrayT() { return this.hasT && Array.isArray(this.for.target.object); },
+        isObjectT() { return this.hasT && !this.isArrayT; }
     },
     methods: {
         open(ev) { this.$refs.m.open(ev); },
@@ -797,7 +825,15 @@ Vue.component('record-text', {
     template: `
         <span class="record--editable" :class="{editing}" 
               :contenteditable="editing" @click="open"
-              @blur="commit" @keypress="keyHandler">{{value}}</span>`,
+              @blur="commit" @keypress="keyHandler"></span>`,
+    mounted() {
+        this.$el.innerText = this.value;  // {{value}} is too flaky
+    },
+    watch: {
+        value(newval, oldval) {
+            this.$el.innerText = newval;  // {{value}} is too flaky
+        }
+    },
     methods: {
         open() {
             if (!this.editing && typeof this.value == 'string') {

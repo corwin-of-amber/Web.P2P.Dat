@@ -14,13 +14,34 @@
     outline: 1px solid #eee;
 }
 
+.record.object:empty {
+    outline: 1px dashed #ccc;
+    min-width: 0.5em;
+    min-height: 0.5em;
+    vertical-align: middle;
+}
+
 .record.menu-open,
 .menu-open .record {
     user-select: none;  /* to disable automatic selection on right click */
 }
 
 .record .record--key-value {
+    display: flex;
+}
+
+.record .record--key-sep {
+    padding-right: .2em;
+}
+
+.record .record--key-value > .record.text\/plain {
+    flex-grow: 1;
+}
+
+.record .record--editable {
     display: block;
+    min-width: .5em;
+    min-height: .7em;
 }
 
 .record .record--editable:focus {
@@ -89,4 +110,8 @@
 
 #editor-area .CodeMirror {
     height: 40%;
+}
+
+button:focus, button:active {
+    outline: none;
 }
