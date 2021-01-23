@@ -3,7 +3,7 @@ import randomBytes from 'randombytes';
 import pump from 'pump';
 import mergeOptions from 'merge-options';
 
-import WebRTCSwarm from 'webrtc-swarm';
+import WebRTCSwarm from '@corwin.amber/webrtc-swarm';
 import signalhubws from 'signalhubws';
 import subsignalhub from 'sub-signalhub';
 import ram from 'random-access-memory';

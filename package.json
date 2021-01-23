@@ -11,13 +11,14 @@
     "sodium-native": "./node_modules/sodium-universal"
   },
   "dependencies": {
+    "@corwin.amber/webrtc-swarm": "^2.9.0-rc1",
     "automerge": "^0.12.1",
-    "automerge-slots": "github:corwin-of-amber/automerge-slots",
+    "automerge-slots": "^1.0.0-rc1",
     "buffer": "^5.6.0",
     "codemirror": "^5.48.2",
     "cuid": "^2.1.8",
     "duplexify": "^4.1.1",
-    "firepad-core": "https://github.com/corwin-of-amber/firepad-core/releases/download/core-v1.5.10/firepad-core-1.5.10.tgz",
+    "firepad-core": "^1.5.10-rc1",
     "glob-all": "^3.2.1",
     "hypercore": "^9.5.0",
     "lodash": "^4.17.20",
@@ -29,15 +30,17 @@
     "signalhubws": "^1.0.12",
     "stream-to-blob": "^2.0.0",
     "sub-signalhub": "^1.0.1",
-    "through2": "^3.0.1",
+    "through2": "^4.0.2",
     "vue": "^2.6.10",
     "vue-context": "^6.0.0",
-    "webrtc-swarm": "github:corwin-of-amber/webrtc-swarm",
-    "websocket": "^1.0.31",
-    "wrtc": "^0.4.1"
+    "websocket": "^1.0.33",
+    "wrtc": "^0.4.7"
+  },
+  "optionalDependencies": {
+    "wrtc": "^0.4.7"
   },
   "chromium-args": "--disable-background-timer-throttling",
   "scripts": {
-    "build": "browserify hyper.js -o hyper.bundle.js && mkdir -p dist && cp node_modules/codemirror/lib/codemirror.css dist/"
+    "build": "kremlin --prod index.html"
   }
 }

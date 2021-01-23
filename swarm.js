@@ -1,4 +1,4 @@
-var swarm = require('webrtc-swarm')
+var swarm = require('@corwin.amber@webrtc-swarm')
 var //signalhub = require('signalhub');
     signalhubws = require('signalhubws');
 
