@@ -1,3 +1,4 @@
+import assert from 'assert';
 import { EventEmitter } from 'events';
 import randomBytes from 'randombytes';
 import pump from 'pump';
@@ -65,9 +66,12 @@ class SwarmClient extends EventEmitter {
     }
 
     async join(channel) {
-        var s = new SwarmClient.Channel(this, channel);
-        fwd(s, ['peer:join', 'peer:ready', 'peer:leave'], this);
-        this.channels.set(channel, s);
+        var s = this.channels.get(channel);
+        if (!s) {
+            s = new SwarmClient.Channel(this, channel);
+            fwd(s, ['peer:join', 'peer:ready', 'peer:leave'], this);
+            this.channels.set(channel, s);
+        }
 
         await this.init();
         if (!s.swarm) s.join();  // in case client was not ready before
@@ -91,7 +95,10 @@ class SwarmClient extends EventEmitter {
         this.close();
         
         await this.init();
-        for (let chan of this.channels.values()) chan.join();
+        for (let chan of this.channels.values()) {
+            chan.join();
+            this.activeChannels.add(chan.name);
+        }
     }
 
     /**
@@ -157,8 +164,10 @@ SwarmClient.Channel = class extends EventEmitter {
 
     join() {
         var hub = this.client.hub, uuid = hex(this.client.id);
+        assert(hub);
         this.hub = this.name ? subsignalhub(hub, `:${this.name}:`) : hub;
 
+        assert(!this.swarm);
         this.swarm = WebRTCSwarm(this.hub, {wrtc, uuid, ...this.opts});
         this.swarm.on('peer', (peer, id) => {
             this.peers.set(id,
