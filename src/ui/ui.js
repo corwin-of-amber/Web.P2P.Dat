@@ -24,7 +24,7 @@ Vue.component('plain-list', {
 
 
 Vue.component('p2p.source-peers', {
-    data: () => ({ peers: [] }),
+    data: () => ({ self: undefined, peers: [] }),
     template: `<span></span>`,
     mounted() {
         this.$root.$watch('clientState', (state) => {
@@ -33,7 +33,8 @@ Vue.component('p2p.source-peers', {
     },
     methods: {
         updatePeers(client) {
-            this.peers.splice(0, Infinity, ...client.getPeers().map(p => p.id));
+            this.self = client;
+            this.peers.splice(0, Infinity, ...client.getPeers());
         },
         register(client) {
             client.deferred.init.then(() => {
@@ -59,7 +60,7 @@ Vue.component('p2p.list-of-peers', {
         <div>
             <p2p.source-peers ref="source"/>
             <plain-list ref="list" v-slot="{item}">
-                {{item.toString('hex')}}
+                {{item.id}}
             </plain-list>
         </div>
     `,
@@ -410,6 +411,18 @@ Vue.component('p2p.documents-raw', {
                 if (slot)
                     slot.set(syncpad.FirepadShare.fromText(slot.get().toString()));
                 break;         // ^ XXX
+            case 'make-videoout':
+                if (slot) {
+                    (async() => {
+                        var v = await video.VideoOutgoing.acquire({audio: false});
+                        v.embed(this.$root.clientState.client, slot);
+                        window.v = v;
+                    })();
+                }
+                break;
+            case 'dev-globalvar':
+                if (slot) { console.log("temp:", slot); window.temp = slot; }
+                break;
             }
             this.$emit('doc:action', {docId: item.id, doc: item.doc, ...action});
         },
@@ -469,13 +482,17 @@ Vue.component('p2p.document-context-menu', {
               <li><a name="make-videoout" @click="action">Video share</a></li>
             </ul>
           </li>
+          <li>
+            <a name="dev-globalvar" @click="action">Set as global variable</a></li>
         </vue-context>`,
     components: {VueContext},
     computed: {
+        /* `for.object` is the (innermost) containing object/array */
         has() { return this.for && this.for.object; },
         hasKey() { return this.for && this.for.key != null; },
         isArray() { return this.has && Array.isArray(this.for.object); },
         isObject() { return this.has && !this.isArray; },
+        /* `for.target` is the value that was right-clicked, if any */
         hasT() { return this.for && this.for.target && 
                         typeof this.for.target.object === 'object'; },
         isArrayT() { return this.hasT ? Array.isArray(this.for.target.object)
@@ -493,79 +510,32 @@ const {VideoIncoming} = require('../addons/video');
 
 Vue.component('p2p.source-video', {
     props: ['videoincoming'],
-    data: () => ({ streams: [], activePeers: [], clientState: undefined }),
+    data: () => ({ streams: [], activePeers: [] }),
     template: `
         <span>
             <p2p.source-peers ref="source"/>
-            <peer-remote-streams v-for="id in relevantPeers" :key="id"
-                  :id="id" ref="delegates" @update="rescanPeers()"/>
+            <hook v-for="peer in activePeers" :key="peer.id"
+                :receiver="peer.peer" on="stream" @stream="refresh"/>
         </span>
     `,
     mounted() {
-        this.$root.$watch('clientState', (state) => {
-            this.clientState = state;
-            this.rescanPeers();
-        }, {immediate: true});
-        this.$watch('videoincoming', () => this.rescanPeers());
+        this.$watch('_streams', v => this._set(v || []), {immediate: true});
         this.activePeers = this.$refs.source.peers;
-        window.vs = this;
     },
     computed: {
-        peerId() { return this.videoincoming && this.videoincoming.peerId; },
-        relevantPeers() {
-            return this.activePeers.filter(id => this.isRelevantPeer(id));
+        _streams() {
+            if (this.videoincoming) {
+                var client = this.$refs.source.self;
+                return client && this.videoincoming.receive(client);
+            }
         }
     },
     methods: {
-        isRelevantPeer(id) { return !this.peerId || id === this.peerId },
-        _set(streams) {
-            this.streams.splice(0, Infinity, ...streams);
-        },
-        rescanPeers() {
-            var client = this.clientState && this.clientState.client;
-            if (client) {
-                this._set(this.receiveFrom(client));
-            }
-        },
-        receiveFrom(client) {
-            if (this.videoincoming)
-                return this.videoincoming.receive(client);
-            else
-                return VideoIncoming.receiveRemote(client);
-        }
+        _set(streams) { this.streams.splice(0, Infinity, ...streams); },
+        refresh() { this.$forceUpdate(); }
     },
     components: {
-        'peer-remote-streams': {
-            props: ['id'],
-            data: () => ({ clientState: undefined }),
-            template: `
-                <hook :receiver="current" on="stream" @stream="onStream"/>
-            `,
-            computed: {
-                current() { return this.getPeer(this.id); }
-            },
-            mounted() {
-                this.$root.$watch('clientState', (state) => {
-                    this.clientState = state;
-                    this.collectStreams();
-                }, {immediate: true});
-            },
-            methods: {
-                getPeer(id) {
-                    var client = this.clientState && this.clientState.client;
-                    return client && client.getPeer(id); 
-                },
-                collectStreams() {
-                    var peer = this.current;
-                    this.streams = peer ? peer._remoteStreams : [];
-                    this.$emit('update');
-                },
-                onStream(stream) { this.collectStreams(); }
-            },
-            components: {
-                hook: eventHook()
-            }
-        }
+        hook: eventHook()
     }
 });
 
@@ -709,7 +679,7 @@ Vue.component('document-preview', {
     methods: {
         showText(slot, kind) {
             switch (kind) {
-                case 'text/firepad': this.kind = 'syncpad'; break;
+                case 'object/FirepadShare': this.kind = 'syncpad'; break;
                 case 'text/automerge': this.kind = 'automerge-codemirror'; break;
                 default:
                     throw new Error(`unknown text document, kind '${kind}'`);
@@ -722,7 +692,7 @@ Vue.component('document-preview', {
         },
         showObject(vm, slot) {
             switch (vm.kind) {
-                case 'text/firepad':
+                case 'object/FirepadShare':
                 case 'text/automerge':
                     this.showText(slot, vm.kind);  return true;
                 case 'file':
@@ -771,13 +741,13 @@ Vue.component('record-object', {
             <template v-if="kind === 'text/plain'">
                 <record-text :value="object" @action="fwd($event)"/>
             </template>
-            <template v-else-if="kind === 'text/automerge' || kind == 'text/firepad'">
+            <template v-else-if="kind === 'text/automerge' || kind == 'object/FirepadShare'">
                 <button @click="select()">Text</button>
             </template>
-            <template v-else-if="kind === 'file'">
+            <template v-else-if="kind === 'object/FileShare'">
                 <button @click="select()">File</button>
             </template>
-            <template v-else-if="kind === 'video'">
+            <template v-else-if="kind === 'object/VideoIncoming'">
                 <p2p.video-view :videoincoming="coerced()"/>
             </template>
             <template v-else-if="kind === 'object'">
@@ -798,10 +768,8 @@ Vue.component('record-object', {
             // XXX
             if      (typeof o === 'string')            return 'text/plain';
             else if (o instanceof automerge.Text)      return 'text/automerge';
-            else if (o && o.$type === 'FirepadShare')  return 'text/firepad'
-            else if (o && o.$type === 'FileShare')     return 'file';
-            else if (o && o.$type === 'VideoIncoming') return 'video';
-            else if (typeof o === 'object')            return 'object';
+            else if (typeof o === 'object')
+                return o.$type ? `object/${o.$type}` : 'object';
             else return 'value';
         },
         objectId() {
@@ -828,9 +796,9 @@ Vue.component('record-object', {
         coerced() {
             switch (this.kind) {
                 // XXX
-                case 'text/firepad': return FirepadShare.from(this.object);
-                case 'video': return VideoIncoming.from(this.object);
-                case 'file': return FileShare.from(this.object);
+                case 'object/FirepadShare': return FirepadShare.from(this.object);
+                case 'object/FileShare': return FileShare.from(this.object);
+                case 'object/VideoIncoming': return VideoIncoming.from(this.object);
                 default: return this.object;
             }
         }

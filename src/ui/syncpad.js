@@ -22,7 +22,7 @@ class SyncPad {
      * contents of the document.
      * @param {CodeMirror.Editor} editor a CodeMirror editor instance
      * @param {DocumentSlotInterface} slot references an object in an Automerge
-     *   doc that will be used to stored and synchronize the text
+     *   doc that will be used to store and synchronize the text
      * @param {object} opts options passed to FirepadCore
      */
     constructor(editor, slot, opts={}) {
@@ -239,12 +239,9 @@ function registerHandlerWithChanges(docSlot, handler) {
     var lastRev = docSlot.get() || automerge.init(), h;
     docSlot.registerHandler(h = newRev => {
         var changes = automerge.getChanges(lastRev, newRev),
-            p = lastRev;
-        lastRev = newRev;
-        //try {
-            handler(newRev, newRev, p, changes);
-        //}
-        //finally { if (lastRev === p) lastRev = newRev; }
+            prev = lastRev;
+        lastRev = newRev;  /* this has to occur *before* handler (async race!) */
+        handler(newRev, prev, changes);
     });
     return {
         unregister() { docSlot.unregisterHandler(h); },
@@ -255,7 +252,7 @@ function registerHandlerWithChanges(docSlot, handler) {
 function registerHandlerObj(slot, handler) {
     var objectId = automerge.getObjectId(slot.get());
     return registerHandlerWithChanges(slot.docSlot, 
-        (newVal, newDoc, oldDoc, changes) => {
+        (newDoc, oldDoc, changes) => {
             changes = changes.filter(x => x.ops &&
                                      x.ops.some(o => o.obj === objectId));
             if (changes.length > 0) {

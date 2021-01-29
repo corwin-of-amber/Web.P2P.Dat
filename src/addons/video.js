@@ -1,6 +1,8 @@
-const assert = require('assert'),
-      {EventEmitter} = require('events'),
-      mergeOptions = require('merge-options');
+import assert from 'assert';
+import { EventEmitter } from 'events';
+import * as mergeOptions from 'merge-options';
+
+import { hex } from '../core/id-keys';
 
 
 
@@ -17,14 +19,12 @@ class VideoOutgoing extends EventEmitter {
     }
 
     dispatch(client) {
-        for (let id of client.peers.keys()) {
-            var peer = client.getPeer(id), ovs;
-            if (peer) {
-                peer._outgoingVideos = ovs = peer._outgoingVideos || new Set();
-                if (!ovs.has(this)) {
-                    peer.addStream(this.stream);
-                    ovs.add(this);
-                }
+        var ovs;
+        for (let {peer} of client.getPeers()) {
+            peer._outgoingVideos = ovs = peer._outgoingVideos || new Set();
+            if (!ovs.has(this)) {
+                peer.addStream(this.stream);
+                ovs.add(this);
             }
         }
     }
@@ -50,7 +50,7 @@ class VideoOutgoing extends EventEmitter {
 class VideoIncoming {
     constructor(peerId, streamId) {
         this.$type = 'VideoIncoming';
-        this.peerId = peerId;
+        this.peerId = hex(peerId);
         this.streamId = streamId;
     }
 
@@ -63,10 +63,10 @@ class VideoIncoming {
     receive(client, peers) {
         peers = peers || client.getPeers();
         return this._scanSelf(client).concat(...
-                 peers.map(x => this._scanPeer(x)));
+                 peers.map(x => this._scanPeer(x.peer)));
     }
 
-    isRelevantPeer(id) { return id === this.peerId; }
+    isRelevantPeer(id) { return hex(id) === this.peerId; }
     isRelevantStream(id) { return id === this.streamId; }
 
     _scanSelf(client) {
@@ -82,12 +82,12 @@ class VideoIncoming {
         return remote.filter(stream => this.isRelevantStream(stream.id)
                                        && stream.active);
     }
-
+/*
     static receiveRemote(client, peers) {
         peers = peers || client.getPeers();
         return [].concat(...peers.map(peer => peer ? peer._remoteStreams : []))
             .filter(stream => stream.active);
-    }
+    }*/
 
     static createVideoElement(stream, play=true) {
         var vid = document.createElement('video');

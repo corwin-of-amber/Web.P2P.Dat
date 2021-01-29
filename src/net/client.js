@@ -205,23 +205,18 @@ class FeedClient extends SwarmClient {
             stream: info => this._stream(info)
         }, opts));
 
-        this.peers = new HexKeyedMap();
-
         this.crowd = new FeedCrowd({storage: ram, feed: {valueEncoding: 'json'}, 
                                     extensions: ['shout']});
 
         this.crowd.on('feed:append', feed => this.onAppend(feed));
         this.crowd.on('feed:error', (feed, e) => this.onError(feed, e));
         this.crowd.on('error',  e => this.onError(null, e));
-
-        this.on('peer-disconnect', (peer, info) => this._removePeer(info.id));
     }
 
     _stream(info) {
         console.log('stream', info);
         try {
             var wire = this.crowd.replicate(info.initiator, {id: info.id});
-            this.peers.set(info.id, wire);
             return wire.chunked();
         }
         catch (e) { console.error(e); }
@@ -235,10 +230,6 @@ class FeedClient extends SwarmClient {
         }
 
         return feed;
-    }
-
-    _removePeer(id) {
-        this.peers.delete(id);
     }
 
     get key() {

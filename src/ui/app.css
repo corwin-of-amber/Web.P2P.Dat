@@ -30,7 +30,12 @@
     display: flex;
 }
 
+.record .record--key {
+    flex-shrink: 0;
+}
+
 .record .record--key-sep {
+    flex-shrink: 0;
     padding-right: .2em;
 }
 
@@ -49,12 +54,12 @@
     outline: none;
 }
 
-.record.video div {
+.record.object\/VideoIncoming div {
     display: inline-block;
     vertical-align: top;
 }
 
-.record.video video {
+.record.object\/VideoIncoming video {
     max-width: 80px;
     max-height: 60px;
 }
