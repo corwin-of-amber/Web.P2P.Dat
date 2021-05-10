@@ -21,7 +21,7 @@
     "firepad-core": "^1.5.10-rc1",
     "glob-all": "^3.2.1",
     "hypercore": "^9.5.0",
-    "lodash": "^4.17.20",
+    "lodash": "^4.17.21",
     "merge-options": "^1.0.1",
     "moment": "^2.24.0",
     "pump": "^3.0.0",
