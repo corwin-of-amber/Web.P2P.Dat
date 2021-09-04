@@ -33,14 +33,17 @@
     "through2": "^4.0.2",
     "vue": "^2.6.10",
     "vue-context": "^6.0.0",
-    "websocket": "^1.0.33",
-    "wrtc": "^0.4.7"
+    "websocket": "^1.0.33"
   },
   "optionalDependencies": {
     "wrtc": "^0.4.7"
   },
   "chromium-args": "--disable-background-timer-throttling",
   "scripts": {
-    "build": "kremlin --prod index.html"
+    "build": "kremlin --prod index.html",
+    "dist": "npm run -s build && mkdir -p public && cp -r img build/kremlin/{index.html,*.css,include.js,bundle.js} public/"
+  },
+  "app": {
+    "icon": "img/Icon.icns"
   }
 }

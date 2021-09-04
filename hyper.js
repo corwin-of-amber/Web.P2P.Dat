@@ -1,7 +1,6 @@
 const {Buffer} = require('buffer'),  // for Kremlin
-      process = require('process'),
-      require = () => ({});
-Object.assign(window, {Buffer, process, require});
+      process = require('process');
+Object.assign(window, {Buffer, process});
 
 const {FeedClient} = require('./src/net/client'),
       {DocumentClient} = require('./src/net/docs'),

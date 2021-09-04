@@ -413,6 +413,7 @@ Vue.component('p2p.documents-raw', {
                 break;         // ^ XXX
             case 'make-videoout':
                 if (slot) {
+                    slot.set({});
                     (async() => {
                         var v = await video.VideoOutgoing.acquire({audio: false});
                         v.embed(this.$root.clientState.client, slot);

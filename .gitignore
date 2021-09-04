@@ -1,7 +1,9 @@
+.*.swp
 *.bundle.js
 *.browser.js
 *.node.js
 node_modules/
+/*.app
 /*.zip
 /dist
 /data
@@ -9,3 +11,4 @@ node_modules/
 /public
 /subsidiaries
 .vercel
+/img/*.icns

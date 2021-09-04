@@ -7,3 +7,4 @@ src
 tests
 node_modules
 build
+*.app
