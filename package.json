@@ -7,8 +7,7 @@
   "license": "ISC",
   "browser": {
     "mass-confusion": true,
-    "jsdom": {},
-    "sodium-native": "./node_modules/sodium-universal"
+    "jsdom": {}
   },
   "dependencies": {
     "@corwin.amber/webrtc-swarm": "^2.9.0-rc1",
@@ -20,7 +19,7 @@
     "duplexify": "^4.1.1",
     "firepad-core": "^1.5.10-rc1",
     "glob-all": "^3.2.1",
-    "hypercore": "^9.5.0",
+    "hypercore": "^9.11.0",
     "lodash": "^4.17.20",
     "merge-options": "^1.0.1",
     "moment": "^2.24.0",
