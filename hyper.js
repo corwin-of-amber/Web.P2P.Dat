@@ -1,6 +1,8 @@
 const {Buffer} = require('buffer'),  // for Kremlin
       process = require('process');
-Object.assign(window, {Buffer, process});
+if (typeof window !== 'undefined') {
+    Object.assign(window, {Buffer, process});
+}
 
 const {FeedClient} = require('./src/net/client'),
       {DocumentClient} = require('./src/net/docs'),
@@ -15,9 +17,14 @@ function main_chat() {
     var c1 = new FeedClient();
     var c2 = new FeedClient();
 
-    App.start().attach(c1);
+    var app = App.start().attach(c1);
 
     c1.create();
+
+    c1.on('feed:append', ev => {
+        app.vue.$refs.documents.docs.push(
+            {from: ev.from, data: ev.data});
+    });
 
     window.addEventListener('beforeunload', () => {
         c1.close(); c2.close();
@@ -46,7 +53,7 @@ async function createDocument() {
 function main_syncdoc() {
     var c1 = new DocumentClient();
 
-    App.start().attach(c1);
+    App.start({channel: 'doc2'}).attach(c1);
 
     const {DirectorySync} = require('./src/addons/fs-sync');
 
@@ -112,6 +119,11 @@ async function main_syncpad() {
     //createText();
 }
 
+function main() {
+    var sp = new URLSearchParams(window.location.search);
+    if (sp.has('chat'))  main_chat();
+    else                 main_syncdoc();
+}
 
 
 if (typeof process !== 'undefined' && process.versions && process.versions.nw)
@@ -128,7 +140,7 @@ if (typeof window !== 'undefined') {
 
     Object.assign(window, require('./tests/monkey')); // for testing
 
-    Object.assign(window, {main_chat, main_syncdoc, main_syncpad});
+    Object.assign(window, {main, main_chat, main_syncdoc, main_syncpad});
 
     window.addEventListener('beforeunload', () => {
         window.automerge = window.video = window.screen = window.syncpad = window.fssync = window.firepad =

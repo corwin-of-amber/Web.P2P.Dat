@@ -68,7 +68,7 @@ class SwarmClient extends EventEmitter {
     async join(channel) {
         var s = this.channels.get(channel);
         if (!s) {
-            s = new SwarmClient.Channel(this, channel);
+            s = new SwarmClient.Channel(this, channel);  /** @todo channel opts? */
             fwd(s, ['peer:join', 'peer:ready', 'peer:leave'], this);
             this.channels.set(channel, s);
         }

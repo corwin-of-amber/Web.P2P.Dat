@@ -12,9 +12,9 @@ function hexShort(b /* Buffer */) {
 class KeyedMap extends Map {
     get(key)        { return super.get(this.realKey(key)); }
     set(key, value) { return super.set(this.realKey(key), value); }
-    delete(key)     { return super.delete(this.realkey(key)); }
+    delete(key)     { return super.delete(this.realKey(key)); }
     has(key)        { return super.has(this.realKey(key)); }
-    realkey(key)    { return key; }
+    realKey(key)    { return key; }
 }
 
 class HexKeyedMap extends KeyedMap {

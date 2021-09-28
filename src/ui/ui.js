@@ -12,7 +12,7 @@ import './menu.css';
 
 
 Vue.component('plain-list', {
-    data: () => ({ items: [] }),
+    props: ['items'],
     template: `
         <ul class="plain-list">
             <li v-for="item in items">
@@ -56,16 +56,17 @@ Vue.component('p2p.source-peers', {
 });
 
 Vue.component('p2p.list-of-peers', {
+    data: () => ({ peers: [] }),
     template: `
         <div>
             <p2p.source-peers ref="source"/>
-            <plain-list ref="list" v-slot="{item}">
+            <plain-list :items="peers" v-slot="{item}">
                 {{item.id}}
             </plain-list>
         </div>
     `,
     mounted() {
-        this.$refs.list.items = this.$refs.source.peers;
+        this.peers = this.$refs.source.peers;
     }
 });
 
@@ -105,7 +106,7 @@ Vue.component('p2p.list-of-messages', {
         <div>
             <p2p.source-messages ref="source"/>
             <p v-if="messages.length == 0">(Welcome)</p>
-            <plain-list ref="list" v-slot="{item}">
+            <plain-list :items="messages" v-slot="{item}">
                 <template v-if="typeof item === 'object'">
                     <message :message="item" v-if="item.message"/>
                     <record-object :object="item" v-else/>
@@ -115,8 +116,7 @@ Vue.component('p2p.list-of-messages', {
         </div>
     `,
     mounted() {
-        this.messages = this.$refs.list.items =
-            this.$refs.source.messagesSorted;
+        this.messages = this.$refs.source.messagesSorted;
     },
     components: {
         'message': {
@@ -176,7 +176,7 @@ Vue.component('p2p.list-of-feeds', {
     template: `
         <div class="p2p-list-of-feeds">
             <p2p.source-feeds ref="source"/>
-            <plain-list ref="list" v-slot="{item}">
+            <plain-list :items="feeds" v-slot="{item}">
                 <span>{{keyHexShort(item)}} 
                     <dl-progress :value="downloadProgress(item, stats[keyHex(item)])"/></span>
             </plain-list>
@@ -184,7 +184,7 @@ Vue.component('p2p.list-of-feeds', {
     `,
     mounted() {
         this.$refs.source.$watch('remote', (remote) => {
-            this.feeds = this.$refs.list.items = remote;
+            this.feeds = remote;
         }, {immediate: true});
         this.stats = this.$refs.source.stats;
     },
@@ -345,7 +345,7 @@ Vue.component('p2p.documents-raw', {
     data: () => ({ docs: [], sync: undefined, menuOpen: undefined }),
     template: `
         <div :class="{'menu-open': !!menuOpen}">
-            <plain-list ref="list" v-slot="{item}">
+            <plain-list :items="docs" v-slot="{item}">
                 <record-object :object="item"
                                @action="onAction(item, $event)"/>
             </plain-list>
@@ -358,7 +358,6 @@ Vue.component('p2p.documents-raw', {
         this.$root.$watch('clientState', (state) => {
             if (state) this.sync = state.client.sync;
         }, {immediate: true});
-        this.$refs.list.items = this.docs;
     },
     methods: {
         create() { this.sync.create(this._freshId()); },
@@ -857,10 +856,12 @@ class Watch {
 
 
 class App {
-    constructor(dom) {
+    constructor(dom, opts={}) {
         this.vue = new Vue({
             el: dom,
             data: {clientState: undefined},
+            props: ['channel'],
+            propsData: {channel: opts.channel ?? 'lobby'},
             computed: {
                 ready() { return this.clientState && this.$refs.join.ready; }
             }
@@ -883,8 +884,8 @@ class App {
     }
 }
 
-App.start = function (root) {
-    window.app = new App(root || document.querySelector('#app'));
+App.start = function (opts={}) {
+    window.app = new App(opts.root || document.querySelector('#app'), opts);
     window.addEventListener('beforeunload', () => { window.app = null; });
     return window.app;
 }

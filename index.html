@@ -3,11 +3,11 @@
         <meta charset="utf-8">
         <link rel="icon" href="img/yarn.png" type="image/png">
 
-        <script src="kremlin://hyper.js"></script>
+        <script src="hyper.js"></script>
     </head>
     <body>
         <div id="app">
-            <p2p.button-join ref="join" channel="doc2"></p2p.button-join>
+            <p2p.button-join ref="join" :channel="channel"></p2p.button-join>
             <p2p.list-of-peers ref="peers"></p2p.list-of-peers>
             <p2p.documents-raw ref="documents" :editable="ready"
                 @doc:action="$emit('doc:action', $event)"></p2p.documents-raw>
@@ -16,7 +16,7 @@
         </div>
     </body>
 
-    <script>main_syncdoc();</script>
+    <script>main();</script>
 
     <!-- @kremlin.plug -->
 </html>
