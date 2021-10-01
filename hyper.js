@@ -5,6 +5,7 @@ if (typeof window !== 'undefined') {
 }
 
 const {FeedClient} = require('./src/net/client'),
+      {FeedCrowdStorageDirectory} = require('./src/net/crowd'),
       {DocumentClient} = require('./src/net/docs'),
       {App} = require('./src/ui/ui');
 
@@ -50,8 +51,14 @@ async function createDocument() {
 }
 
 
-function main_syncdoc() {
-    var c1 = new DocumentClient();
+function main_syncdoc(sp) {
+    var fcsd = sp.has('persist') ? new FeedCrowdStorageDirectory(sp.get('persist')) : null;
+
+    var c1 = new DocumentClient(
+        fcsd ? {storageFactory: fcsd.storageFactory} : {}
+    );
+
+    window.fcsd = fcsd;
 
     App.start({channel: 'doc2'}).attach(c1);
 
@@ -68,6 +75,13 @@ function main_syncdoc() {
         window.c1 = window.createDocument = window.ds = null;
     });
     Object.assign(window, {c1, createDocument});
+}
+
+function main_syncdoc_headless() {
+    var c1 = new DocumentClient();
+    c1.join('doc2');
+
+    c1.on('change', console.log);
 }
 
 
@@ -122,7 +136,14 @@ async function main_syncpad() {
 function main() {
     var sp = new URLSearchParams(window.location.search);
     if (sp.has('chat'))  main_chat();
-    else                 main_syncdoc();
+    else                 main_syncdoc(sp);
+}
+
+function main_headless() {
+    // at least I manage to amuse myself
+    var sp = new URLSearchParams(process.argv.slice(2).join('&'));
+    if (sp.has('chat'))  main_chat_headless();
+    else                 main_syncdoc_headless();
 }
 
 
@@ -151,4 +172,4 @@ if (typeof window !== 'undefined') {
     });
 }
 else 
-    main_chat_headless();  // listen only
+    main_headless();  // listen only

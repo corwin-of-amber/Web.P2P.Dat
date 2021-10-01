@@ -202,12 +202,15 @@ class FeedClient extends SwarmClient {
 
     constructor(opts) {
         super(mergeOptions({
+            storageFactory: () => ram,
             stream: info => this._stream(info)
         }, opts));
 
-        this.crowd = new FeedCrowd({storage: ram, feed: {valueEncoding: 'json'}, 
+        this.crowd = new FeedCrowd({storageFactory: this.opts.storageFactory,
+                                    feed: {valueEncoding: 'json'}, 
                                     extensions: ['shout']});
 
+        this.crowd.on('feed:ready', feed => this.onAppend(feed));
         this.crowd.on('feed:append', feed => this.onAppend(feed));
         this.crowd.on('feed:error', (feed, e) => this.onError(feed, e));
         this.crowd.on('error',  e => this.onError(null, e));

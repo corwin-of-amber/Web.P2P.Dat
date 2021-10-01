@@ -1,8 +1,12 @@
+import fs from 'fs';      /* @kremlin.native */
+import path from 'path';  /* @kremlin.native */
 import { EventEmitter } from 'events';
 import mergeOptions from 'merge-options';
 
 import hypercore from 'hypercore'
 import Protocol from 'hypercore-protocol';
+
+import raf from 'random-access-file/index';
 
 import munch from '../core/munch';
 
@@ -83,13 +87,22 @@ class FeedCrowd extends EventEmitter {
         return this._waitForReady(feed);
     }
 
+    load(storageDir /* : FeedCrowdStorageDirectory */) {
+        var feeds = storageDir.loadAll().map(({opts, meta}) =>
+            this._mkfeed(null, opts, meta));
+        
+        this.remoteFeeds.push(...feeds);
+
+        return Promise.all(feeds.map(f => this._waitForReady(f)));
+    }
+
     longKey(feed) { return keyHex(feed); }
     shortKey(feed) { return keyHexShort(feed); }
 
     _mkfeed(key, opts, meta) {
         opts = mergeOptions(this.opts.feed, opts);
 
-        var feed = hypercore(opts.storage || this.opts.storage, 
+        var feed = hypercore(opts.storage || this.opts.storage || this.opts.storageFactory?.(key, meta),
                              key, opts);
         feed.opts = opts;
         feed.meta = mergeOptions(this.opts.meta, meta);
@@ -123,6 +136,8 @@ class FeedCrowd extends EventEmitter {
             let {key, opts, meta} = entry;
             if (!this.localFeeds.some(x => keyHex(x) === key))  // skip local
                 this.listen(key, opts, meta).then(feed => wire.share(feed));
+            // @todo publish to other wires. but do avoid cycles among peers
+            // (fix `Wire.share`)
         }
     }
 
@@ -148,7 +163,6 @@ class FeedCrowd extends EventEmitter {
     }
 
 }
-
 
 
 /**
@@ -219,6 +233,74 @@ class Wire extends Protocol {
 }
 
 
+class FeedCrowdStorageDirectory {
+    constructor(root) {
+        this.root = root;
+        this._fresh = 0;
+        this.subdirs = new Map();  // subdirs keyed by feed id
+        this.meta = {};  // serializable metadata keyed by subdir
+        this.loadMeta();
+        this.updateIndex();
+    }
+
+    get storageFactory() {
+        return (key, meta) => this.for(key, meta);
+    }
+
+    for(key, meta) {
+        var subdir = key && this.subdirs[this._key(key)];
+        return this.get(subdir ?? (this._fresh++).toString(), meta);
+    }
+
+    load(subdir) {
+        return {opts: {storage: this.get(subdir)}, meta: this.meta[subdir]};
+    }
+
+    loadAll() {
+        return [...this.subdirs.values()].map(subdir => this.load(subdir));
+    }
+
+    loadMeta() {
+        try {
+            this.meta = JSON.parse(fs.readFileSync(this._metafn));
+        }
+        catch { this.meta = {}; }
+    }
+
+    saveMeta() {
+        fs.writeFileSync(this._metafn, JSON.stringify(this.meta));
+    }
+
+    updateIndex() {
+        try {
+            var existing = fs.readdirSync(this.root);
+        }
+        catch { return; }
+        
+        for (let subdir of existing) {
+            if (+subdir >= this._fresh) this._fresh = +subdir + 1;
+            try {
+                var key = fs.readFileSync(path.join(this.root, subdir, 'key'));
+            }
+            catch { continue; }
+            this.subdirs.set(this._key(key), subdir);
+        }    
+    }
+
+    get(subdir, meta) {
+        const directory = path.join(this.root, subdir);
+        if (meta) this.meta[subdir] = meta;
+        return (name) => raf(name, {directory});
+    }
+
+    get _metafn() {
+        return path.join(this.root, 'index.json');
+    }
+
+    _key(key) { return key.toString('hex'); }
+}
+
+
 function keyHex(feed) {
     return feed && feed.key && feed.key.toString('hex');
 }
@@ -230,4 +312,4 @@ function keyHexShort(feed) {
 
 
 
-module.exports = {FeedCrowd, keyHex, keyHexShort}
+module.exports = {FeedCrowd, FeedCrowdStorageDirectory, keyHex, keyHexShort}
