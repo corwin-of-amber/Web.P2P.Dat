@@ -6,5 +6,6 @@ subsidiaries
 src
 tests
 node_modules
-build
+public
+build/cli
 *.app

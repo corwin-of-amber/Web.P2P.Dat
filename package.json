@@ -10,10 +10,9 @@
     "jsdom": {}
   },
   "dependencies": {
-    "@corwin.amber/webrtc-swarm": "^2.9.0-rc1",
+    "@corwin.amber/webrtc-swarm": "^2.9.0-rc2",
     "automerge": "^0.12.1",
     "automerge-slots": "^1.0.0-rc1",
-    "buffer": "^5.6.0",
     "codemirror": "^5.48.2",
     "cuid": "^2.1.8",
     "duplexify": "^4.1.1",
@@ -37,9 +36,14 @@
   "optionalDependencies": {
     "wrtc": "^0.4.7"
   },
+  "devDependencies": {
+    "buffer": "^6.0.3",
+    "process": "^0.11.10"
+  },
   "chromium-args": "--disable-background-timer-throttling",
   "scripts": {
     "build": "kremlin --prod index.html",
+    "build:cli": "kremlin -o build/cli --node hyper.js",
     "dist": "npm run -s build && mkdir -p public && cp -r img build/kremlin/{index.html,*.css,include.js,bundle.js} public/"
   },
   "app": {
@@ -49,7 +53,8 @@
     "node": {
       "externals": {
         "buffer": true,
-        "sodium-native": true
+        "sodium-native": true,
+        "jsdom": {}
       }
     }
   }
