@@ -24,8 +24,16 @@ const node_require = require, /* bypass browserify */
 
 const DEFAULT_OPTIONS = {
         appName: 'dat-p2p-crowd',
-        servers: {hub: 'wss://amberhubws.herokuapp.com'}
-        //servers: {hub: 'ws://localhost:3300'}
+        servers: {
+            hub: 'wss://amberhubws.herokuapp.com',   // my server :P
+            ice: [
+                {urls: ['stun:stun.l.google.com:19302',
+                        'stun:global.stun.twilio.com:3478']},
+                {urls: ['turn:pwr.zapto.org:3478'],  // my server :P
+                 username: 'power',
+                 credential: 'to-the-people'}
+            ]
+        }
     };
 
 
@@ -68,7 +76,7 @@ class SwarmClient extends EventEmitter {
     async join(channel) {
         var s = this.channels.get(channel);
         if (!s) {
-            s = new SwarmClient.Channel(this, channel);  /** @todo channel opts? */
+            s = new SwarmClient.Channel(this, channel, this._channelOptions());
             fwd(s, ['peer:join', 'peer:ready', 'peer:leave'], this);
             this.channels.set(channel, s);
         }
@@ -125,6 +133,12 @@ class SwarmClient extends EventEmitter {
         return [].concat(...
             channels.map(chan => [...chan.peers.entries()]
                 .map(([id, p]) => ({id, ...p}))));
+    }
+
+    _channelOptions() {
+        var iceServers = this.opts.servers?.ice,
+            opts = iceServers ? {config: {iceServers}} : {};
+        return opts; /** @todo config other options? */
     }
 
     _registerCloseEvents() {
