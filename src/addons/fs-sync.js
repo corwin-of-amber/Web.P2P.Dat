@@ -27,10 +27,13 @@ class DirectorySync {
      * 
      * @param slot a `DocumentObjectSlot`-like object (should at least support
      *   `get()`)
+     * @param dir target directory; will be created if does not exist
+     * @param _fs an `fs`-like object (defaults to `fs`)
      */
-    constructor(slot, dir) {
+    constructor(slot, dir, _fs = fs) {
         this.slot = slot;
         this.dir = dir;
+        this.fs = _fs;
     }
 
     async populate(files) {
@@ -54,9 +57,7 @@ class DirectorySync {
         return clone;
     }
 
-    save() {
-        var files = this.slot.get();
-
+    save(files = this.slot.get()) {
         for (let {filename, content} of files) {
             try {
                this._writeFile(filename,
@@ -76,8 +77,8 @@ class DirectorySync {
 
     _writeFile(filename, content) {
         var fp = this.indir(filename);
-        fs.mkdirSync(path.dirname(fp), {recursive: true});
-        fs.writeFileSync(fp, content);
+        this.fs.mkdirSync(path.dirname(fp), {recursive: true});
+        this.fs.writeFileSync(fp, content);
     }
 
     _getTextContent(content) {
