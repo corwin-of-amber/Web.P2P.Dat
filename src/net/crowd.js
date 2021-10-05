@@ -93,7 +93,11 @@ class FeedCrowd extends EventEmitter {
         
         this.remoteFeeds.push(...feeds);
 
-        return Promise.all(feeds.map(f => this._waitForReady(f)));
+        return Promise.all(feeds.map(async f => {
+            await this._waitForReady(f);
+            this._listenPromises.set(keyHex(f), Promise.resolve(f));
+            return f;
+        }));
     }
 
     longKey(feed) { return keyHex(feed); }
@@ -289,7 +293,7 @@ class FeedCrowdStorageDirectory {
 
     get(subdir, meta) {
         const directory = path.join(this.root, subdir);
-        if (meta) this.meta[subdir] = meta;
+        if (meta) { this.meta[subdir] = meta; this.saveMeta(); }
         return (name) => raf(name, {directory});
     }
 
