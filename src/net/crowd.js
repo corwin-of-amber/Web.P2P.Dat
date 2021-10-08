@@ -272,6 +272,7 @@ class FeedCrowdStorageDirectory {
     }
 
     saveMeta() {
+        fs.mkdirSync(this.root, {recursive: true});
         fs.writeFileSync(this._metafn, JSON.stringify(this.meta));
     }
 
@@ -294,6 +295,7 @@ class FeedCrowdStorageDirectory {
     get(subdir, meta) {
         const directory = path.join(this.root, subdir);
         if (meta) { this.meta[subdir] = meta; this.saveMeta(); }
+        /** @todo use hypercore-default-storage, just force native raf */
         return (name) => raf(name, {directory});
     }
 

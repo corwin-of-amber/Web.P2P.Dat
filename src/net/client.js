@@ -25,6 +25,7 @@ const node_require = require, /* bypass browserify */
 const DEFAULT_OPTIONS = {
         appName: 'dat-p2p-crowd',
         servers: {
+            //hub: 'ws://pwr.zapto.org',             // my server :P
             hub: 'wss://amberhubws.herokuapp.com',   // my server :P
             ice: [
                 {urls: ['stun:stun.l.google.com:19302',
@@ -231,7 +232,7 @@ class FeedClient extends SwarmClient {
     }
 
     _stream(info) {
-        console.log('stream', info);
+        console.log('stream', {id: info.id, initiator: info.initiator});
         try {
             var wire = this.crowd.replicate(info.initiator, {id: info.id});
             return wire.chunked();
