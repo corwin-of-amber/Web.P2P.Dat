@@ -220,12 +220,13 @@ Vue.component('p2p.button-join', {
         <span class="p2p-button-join" :class="status">
             <p2p.source-status ref="source" :channel="channel"/>
             <button @click="onClick()" :disabled="disabled">
-                <slot>Join</slot>
+                <slot>{{caption}}</slot>
             </button>
             <label>{{status}}</label>
         </span>`,
     computed: {
-        disabled() { return this.status != 'disconnected' || !this._client(); },
+        disabled() { return this.status == 'connecting' || this.status == 'disconnecting' || !this._client(); },
+        caption() { return this.status == 'connected' ? 'Leave' : 'Join'; },
         ready() { return this.$refs.source && this.$refs.source.ready; }
     },
     mounted() {
@@ -238,7 +239,10 @@ Vue.component('p2p.button-join', {
             return this.$refs.source && this.$refs.source._client;
         },
         onClick() {
-            this.$refs.source.connect();
+            if (this.status == 'connected')
+                this.$refs.source.disconnect();
+            else
+                this.$refs.source.connect();
         }
     }
 });
