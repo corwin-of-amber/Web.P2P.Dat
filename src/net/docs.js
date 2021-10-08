@@ -20,11 +20,12 @@ class DocumentClient extends FeedClient {
         this.docGroup = new FeedGroup(this, 
             feed => feed.meta && feed.meta.type === 'docsync');
 
-        var outqueue = null, inqueue = [], engage = true;
+        var outqueue = {}, inqueue = [], engage = true,
+            outpush = (k, d) => outqueue[k] = this._countersMax(outqueue[k], d); /** @hmm ok? */
 
         this.sync = new DocSync();
         this.sync.on('data', d => {
-            if (!d.changes && !engage) { outqueue = d; return; }
+            if (!d.changes && !engage) { outpush(d.docId, d); return; }
             var feed = d.changes ? this.docFeeds.changes : this.docFeeds.transient;
             if (feed) feed.append(d);
             else console.warn('DocSync message lost;', d);
@@ -41,7 +42,9 @@ class DocumentClient extends FeedClient {
             while (d = inqueue.shift()) this.sync.data(d);
             this.emit('doc:sync');
             engage = true;
-            if (outqueue) { this.sync.emit('data', outqueue); outqueue = null; }
+            for (let d of Object.values(outqueue))
+                this.sync.emit('data', d);
+            outqueue = {};
         });
 
         this.isSynchronized = () => engage && this.docGroup.isSynchronized();
@@ -57,6 +60,13 @@ class DocumentClient extends FeedClient {
         d.changes = d.changes || await this.create({}, {type}, false);
         d.transient = d.transient ||
                 await this.create({extensions: ['shout']}, {type, transitive: false}, false);
+    }
+
+    _countersMax(cobj1 = {}, cobj2 = {}) {
+        for (let [k, v] of Object.entries(cobj2)) {
+            cobj1[k] = Math.max(cobj1[k] || 0, v);
+        }
+        return cobj1;
     }
 
     shout() {
