@@ -33,11 +33,16 @@ class SyncPad {
 
         this.tm = undefined;
         this._outbox = undefined;
+        this._active = true;
 
-        (this._park = slot.park()).then(() => this._formLink());
+        this._ready = (this._park = slot.park()).then(() => {
+            if (this._active) this._formLink();
+            else throw new Error('syncpad cancelled'); 
+        });
     }
 
     destroy() {
+        this._active = false;
         if (this._park)             this._park.cancel();
         if (this.fpHandler)         this.firepad.off('data', this.fpHandler);
         if (this.amHandler)         this.amHandler.unregister();
@@ -45,9 +50,8 @@ class SyncPad {
         this.firepad.dispose();
     }
 
-    get ready() {
-        return this._park || Promise.resolve();
-    }
+    get ready() { return this._ready; }
+    get active() { return this._active; }
 
     /**
      * Creates a text write stream, where writes are appended to the
