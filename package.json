@@ -12,7 +12,7 @@
   "dependencies": {
     "@corwin.amber/webrtc-swarm": "^2.9.0-rc2",
     "automerge": "^0.12.1",
-    "automerge-slots": "^1.0.0-rc1",
+    "automerge-slots": "^1.0.0",
     "codemirror": "^5.48.2",
     "cuid": "^2.1.8",
     "duplexify": "^4.1.1",
@@ -54,7 +54,8 @@
       "externals": {
         "buffer": true,
         "sodium-native": true,
-        "jsdom": {}
+        "jsdom": {},
+        "supports-color": false
       }
     }
   }

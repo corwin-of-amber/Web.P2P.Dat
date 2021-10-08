@@ -1,7 +1,8 @@
-const automerge = require('automerge'),
-      {EventEmitter} = require('events'),
-      {DocumentSlot} = require('automerge-slots'),
-      mergeOptions = require('merge-options');
+import { EventEmitter } from 'events';
+import mergeOptions from 'merge-options';
+import cuid from 'cuid';
+import automerge from 'automerge';
+import { DocumentSlot } from 'automerge-slots';
 
 
 
@@ -32,7 +33,7 @@ class DocSync extends EventEmitter {
         this.protocol.receiveMsg(msg);
     }
 
-    create(docName) {
+    create(docName = cuid()) {
         var doc = automerge.init();
         this.docs.setDoc(docName, doc);
         return new DocumentSlot(this.docs, docName);
