@@ -21,7 +21,7 @@ class DocumentClient extends FeedClient {
             feed => feed.meta && feed.meta.type === 'docsync');
 
         var outqueue = {}, inqueue = [], engage = true,
-            outpush = (k, d) => outqueue[k] = this._countersMax(outqueue[k], d); /** @hmm ok? */
+            outpush = (k, d) => outqueue[k] = this._combine(outqueue[k], d); /** @hmm ok? */
 
         this.sync = new DocSync();
         this.sync.on('data', d => {
@@ -60,6 +60,14 @@ class DocumentClient extends FeedClient {
         d.changes = d.changes || await this.create({}, {type}, false);
         d.transient = d.transient ||
                 await this.create({extensions: ['shout']}, {type, transitive: false}, false);
+    }
+
+    /** Merges clock values from two messages */
+    _combine(d1, d2) {
+        if (!d1 || !d2) return d1 ?? d2;
+        /**/ assert(d1.docId == d2.docId); /**/
+        d1.clock = this._countersMax(d1.clock, d2.clock);
+        return d1;
     }
 
     _countersMax(cobj1 = {}, cobj2 = {}) {
