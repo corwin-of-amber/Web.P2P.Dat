@@ -218,13 +218,17 @@ class FirepadShare {
         this.cursors = cursors;
     }
 
+    clone() {
+        return new FirepadShare([...this.operations], {...this.cursors});
+    }
+
     static from(props) {
         return new FirepadShare(props.operations, props.cursors);
     }
 
     static fromText(text) {
-        var o = [{o: new TextOperation().insert(text)}];
-        return new FirepadShare([JSON.stringify(o)]);
+        var o = text ? [[{o: new TextOperation().insert(text)}]] : [];
+        return new FirepadShare(o.map(JSON.stringify));
     }
 
     getValue() {

@@ -1,6 +1,6 @@
 const node_require = global.require || (() => {}), /* bypass browserify */
 
-      fs = node_require('fs'), path = node_require('path'),
+      fs = node_require('fs'), path = require('path'),
       globAll = node_require('glob-all');
 
 

@@ -1,6 +1,6 @@
 {
   "name": "dat-p2p-crowd",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "",
   "main": "build/kremlin/index.html",
   "author": "",
@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@corwin.amber/webrtc-swarm": "^2.9.0-rc2",
-    "automerge": "^0.12.1",
-    "automerge-slots": "^1.0.0",
+    "automerge": "^0.14.2",
+    "automerge-slots": "file:subsidiaries/automerge-slots",
     "codemirror": "^5.48.2",
     "cuid": "^2.1.8",
     "duplexify": "^4.1.1",
