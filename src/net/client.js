@@ -25,8 +25,8 @@ const node_require = require, /* bypass browserify */
 const DEFAULT_OPTIONS = {
         appName: 'dat-p2p-crowd',
         servers: {
-            //hub: 'ws://pwr.zapto.org',             // my server :P
-            hub: 'wss://amberhubws.herokuapp.com',   // my server :P
+            hub: 'wss://pwr.zapto.org',              // my server :P
+            //hub: 'wss://amberhubws.herokuapp.com', // my server :P
             ice: [
                 {urls: ['stun:stun.l.google.com:19302',
                         'stun:global.stun.twilio.com:3478']},
