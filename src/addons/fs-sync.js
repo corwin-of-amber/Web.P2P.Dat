@@ -82,7 +82,7 @@ class DirectorySync {
     }
 
     _getTextContent(content) {
-        const {FirepadShare} = require('../ui/syncpad');
+        const {FirepadShare} = require('./syncpad');
         return FirepadShare.from(content).getValue();
     }
 
@@ -96,7 +96,7 @@ class DirectorySync {
     }
 
     _createSyncPad(filename) {
-        const {SyncPad} = require('../ui/syncpad'),
+        const {SyncPad} = require('./syncpad'),
               CodeMirror = require('codemirror');  // oops
     
         var slot = this._createFirepadShare(filename);
@@ -104,7 +104,7 @@ class DirectorySync {
     }
 
     _createFirepadShare(filename) {
-        const {FirepadShare} = require('../ui/syncpad');
+        const {FirepadShare} = require('./syncpad');
 
         var slot = this._createFileEntry(filename), subslot;
         slot.change(obj => {

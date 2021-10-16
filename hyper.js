@@ -155,7 +155,7 @@ if (typeof window !== 'undefined') {
           video = require('./src/addons/video'),
           screen = require('./src/addons/share-screen'),
           fssync = require('./src/addons/fs-sync'),
-          syncpad = require('./src/ui/syncpad'),
+          syncpad = require('./src/addons/syncpad'),
           firepad = require('firepad-core');
     Object.assign(window, {automerge, video, screen, fssync, syncpad, firepad});
 

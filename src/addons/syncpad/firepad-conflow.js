@@ -56,7 +56,8 @@ class FirepadTreeMerge {
         if (this.operations.length === 0) return "";
 
         var composed = this.recompose();
-        assert(composed.ops.length === 1 && composed.ops[0].type === 'insert');
+        assert.strictEqual(composed.ops.length, 1);
+        assert.strictEqual(composed.ops[0].type === 'insert');
         return composed.ops[0].text;
     }
 
@@ -131,8 +132,8 @@ class FirepadTreeMerge {
      */
     rebased(index, operation) {
         var incumbent = this.operations[index];
-        assert.equal(incumbent.id, operation.id);
-        assert.equal(JSON.stringify(incumbent.v),
+        assert.strictEqual(incumbent.id, operation.id);
+        assert.strictEqual(JSON.stringify(incumbent.v),
                      JSON.stringify(operation.v.slice(0, incumbent.v.length)));
 
         this.operations[index] = operation;
@@ -140,7 +141,7 @@ class FirepadTreeMerge {
         var [residue, adj] = this.preadjust(index, operation.v.slice(-1)[0]);
         this.residues.set(operation.id, residue);
 
-        assert.equal(JSON.stringify(adj), JSON.stringify(this.applied.get(operation.id)));
+        assert.strictEqual(JSON.stringify(adj), JSON.stringify(this.applied.get(operation.id)));
     }
 
     isLinear() {

@@ -625,7 +625,7 @@ Vue.component('p2p.file-object', {
     }
 });
 
-const {SyncPad, FirepadShare} = require('./syncpad');
+const {SyncPad, FirepadShare} = require('../addons/syncpad');
 
 Vue.component('syncpad', {
     data: () => ({ slot: undefined }),

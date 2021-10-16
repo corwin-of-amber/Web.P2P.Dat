@@ -4,7 +4,7 @@ const _ = require('lodash'),
 
 const automerge = require('automerge'),
       {FirepadCore, TextOperation} = require('firepad-core'),
-      {FirepadTreeMerge} = require('../addons/firepad-conflow');
+      {FirepadTreeMerge} = require('./firepad-conflow');
 
 
 
