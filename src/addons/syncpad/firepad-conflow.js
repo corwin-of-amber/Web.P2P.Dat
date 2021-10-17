@@ -57,7 +57,7 @@ class FirepadTreeMerge {
 
         var composed = this.recompose();
         assert.strictEqual(composed.ops.length, 1);
-        assert.strictEqual(composed.ops[0].type === 'insert');
+        assert.strictEqual(composed.ops[0].type, 'insert');
         return composed.ops[0].text;
     }
 
