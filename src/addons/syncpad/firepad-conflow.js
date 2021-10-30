@@ -49,7 +49,7 @@ class FirepadTreeMerge {
 
     recompose() {
         return (this.operations.length === 0) ? new TextOperation()
-            : this.seq.reduce((o1, o2) => this._compose(o1, o2));
+            : this._op(this.seq.reduce((o1, o2) => this._compose(o1, o2)));
     }
 
     getText() {
