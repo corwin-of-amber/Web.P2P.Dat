@@ -19,7 +19,7 @@ import { FeedCrowd } from './crowd';
 /* This can work in node as well, but switching to discovery-swarm-web would require a tiny patch */
 const node_require = require, /* bypass browserify */
       node_ws = (typeof WebSocket === 'undefined') ? node_require('websocket').w3cwebsocket : undefined,
-      wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('wrtc') : undefined;
+      wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('@koush/wrtc') : undefined;
 
 
 const DEFAULT_OPTIONS = {
@@ -74,17 +74,18 @@ class SwarmClient extends EventEmitter {
         });
     }
 
-    async join(channel) {
+    async join(channel, ChannelClass=SwarmClient.StandardChannel) {
         var s = this.channels.get(channel);
         if (!s) {
-            s = new SwarmClient.Channel(this, channel, this._channelOptions());
+            s = new ChannelClass(this, channel, this._channelOptions());
             fwd(s, ['peer:join', 'peer:ready', 'peer:leave'], this);
             this.channels.set(channel, s);
         }
 
         await this.init();
-        if (!s.swarm) s.join();  // in case client was not ready before
+        if (!s.isActive) s.join();  // in case client was not ready before
         this.activeChannels.add(channel);
+        return s;
     }
 
     close() {
@@ -139,7 +140,10 @@ class SwarmClient extends EventEmitter {
     _channelOptions() {
         var iceServers = this.opts.servers?.ice,
             opts = iceServers ? {config: {iceServers}} : {};
-        return opts; /** @todo config other options? */
+        /** allow to config other options */
+        if (this.opts.connection)
+            opts = mergeOptions(opts, this.opts.connection);
+        return opts;
     }
 
     _registerCloseEvents() {
@@ -162,10 +166,50 @@ class SwarmClient extends EventEmitter {
 }
 
 /**
+ * A mock channel that connects two client instances in
+ * the same process.
+ */
+SwarmClient.DirectChannel = class extends EventEmitter {
+
+    constructor(client, name, opts={}) {
+        super();
+        this.client = client;
+        this.name = name;
+        this.opts = opts;
+    }
+
+    join() { }
+    leave() { }
+
+    connectTo(other) {
+        other._handle(this._open(other.client.id, true), this.client.id);
+    }
+
+    _handle(peer, id) {
+        const wire = this._open(id, false);
+        if (wire) {
+            pump(peer, wire, peer)
+            return wire;
+        }
+    }
+
+    _open(id, initiator) {
+        if (this.client.opts.stream) {
+            const wire = this.client.opts.stream({id, channel: this,
+                                                  initiator});
+            wire.on('handshake', () => this.emit('peer:ready', {id}));
+            return wire;
+        }
+    }
+
+    isActive() { return true; }
+}
+
+/**
  * Represents a connection to a channel in a Signalhub.
  * (using subsignalhub.)
  */
-SwarmClient.Channel = class extends EventEmitter {
+SwarmClient.StandardChannel = class extends EventEmitter {
 
     constructor(client, name, opts={}) {
         super();
@@ -201,6 +245,8 @@ SwarmClient.Channel = class extends EventEmitter {
         this.swarm = undefined;
     }
 
+    get isActive() { return !!this.swarm; }
+
     _handle(peer, id) {
         if (this.client.opts.stream) {
             const wire = this.client.opts.stream({id, channel: this,
@@ -209,7 +255,7 @@ SwarmClient.Channel = class extends EventEmitter {
             pump(peer, wire, peer)
             return wire;
         }
-    }        
+    }
 }
 
 
