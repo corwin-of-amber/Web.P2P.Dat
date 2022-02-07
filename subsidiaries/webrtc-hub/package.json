@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "dependencies": {
     "node-turn": "^0.0.6",
+    "signalhubws": "github:corwin-of-amber/signalhubws",
     "stun": "^2.1.0"
   }
 }

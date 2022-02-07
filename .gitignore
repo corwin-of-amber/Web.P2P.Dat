@@ -9,7 +9,7 @@ node_modules/
 /data
 /build
 /public
-/subsidiaries
 .vercel
 /img/*.icns
 /tmp
+_npmlink
