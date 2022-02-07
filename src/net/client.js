@@ -268,7 +268,7 @@ class FeedClient extends SwarmClient {
         }, opts));
 
         this.crowd = new FeedCrowd({storageFactory: this.opts.storageFactory,
-                                    feed: {valueEncoding: 'json'}, 
+                                    //feed: {valueEncoding: 'json'}, 
                                     extensions: ['shout']});
 
         this.crowd.on('feed:ready', feed => this.onAppend(feed));

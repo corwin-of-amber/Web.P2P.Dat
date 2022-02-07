@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import mergeOptions from 'merge-options';
 import cuid from 'cuid';
 import automerge from 'automerge';
+import { DocSet, Connection } from '../sync/automerge-compat';
 import { DocumentSlot } from 'automerge-slots';
 
 
@@ -17,8 +18,8 @@ class DocSync extends EventEmitter {
 
         this.opts = mergeOptions(DEFAULT_OPTIONS, opts);
 
-        this.docs = new automerge.DocSet();
-        this.protocol = new automerge.Connection(this.docs, msg => this.sendMsg(msg));
+        this.docs = new DocSet();
+        this.protocol = new Connection(this.docs, msg => this.sendMsg(msg));
         this.protocol.open();
 
         this.docs.registerHandler((docId, doc) => this._onSetDoc(docId, doc));        
@@ -34,8 +35,7 @@ class DocSync extends EventEmitter {
     }
 
     create(docName = cuid()) {
-        var doc = automerge.init();
-        this.docs.setDoc(docName, doc);
+        this.docs.createDoc(docName);
         return new DocumentSlot(this.docs, docName);
     }
 

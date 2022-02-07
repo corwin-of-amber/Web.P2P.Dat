@@ -1,5 +1,11 @@
 {
   "compilerOptions": {
-    "esModuleInterop": true
+    "target": "es2019",
+    "moduleResolution": "node",
+    "lib": ["es2020", "dom"],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "experimentalDecorators": true
   }
 }
