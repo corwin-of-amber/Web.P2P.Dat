@@ -289,7 +289,7 @@ Vue.component('p2p.source-status', {
             if (c) {
                 this._pending('connecting');
                 if (c.hub && !c.hub.opened) await c.reconnect();
-                c.join(this._channel, false);
+                c.join(this._channel);
             }
         },
         disconnect() {

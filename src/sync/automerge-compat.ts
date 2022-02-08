@@ -48,6 +48,7 @@ class DocSet<D = any> extends EventEmitter {
             var doc = this.docs.get(docId) || this._createDoc(docId);
             if (doc instanceof DocWithSync) {
                 doc.receiveSyncMessages(peerId, msg);
+                this.emit('change', docId, doc.doc);
             }
             else throw new Error(`receiving changes for doc '${docId}', which does not have a sync`);
         }
@@ -59,6 +60,10 @@ class DocSet<D = any> extends EventEmitter {
     }
 
     registerHandler(handler: (docId: string, doc: Automerge.FreezeObject<D>) => void) {
+        this.on('change', handler);
+        /*
+         * This is kept here as reference. Looks like switching to Observable is
+         * a better alternative in the long run.
         var hooks = handler[DocSet.HOOK] = [],
             hookup = <T>(t: T) => { hooks.push(t); return t; },
             stillOn = () => handler[DocSet.HOOK] === hooks;
@@ -67,12 +72,14 @@ class DocSet<D = any> extends EventEmitter {
                 hookup((diff, oldRev, newRev) => 
                     stillOn() && handler(docId, newRev)))
         }
+        */
     }
 
     unregisterHandler(handler: (docId: string, doc: Automerge.FreezeObject<D>) => void) {
+        this.off('change', handler);
         /** @oops no way to unobserve in automerge? */
         // for (let hook of handler[DocSet.HOOK] ?? []) { ... }
-        delete handler[DocSet.HOOK];
+        //delete handler[DocSet.HOOK];
     }
 
     static HOOK = Symbol('DocSet.HOOK')
