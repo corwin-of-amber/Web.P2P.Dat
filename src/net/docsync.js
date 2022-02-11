@@ -134,5 +134,4 @@ s1.create('d1');
 s1.change('d1', d => d.cards = []);
 */
 
-if (typeof module !== 'undefined')
-    module.exports = {DocSync};
+export { DocSync }

@@ -1,5 +1,6 @@
 import fs from 'fs';      /* @kremlin.native */
 import path from 'path';  /* @kremlin.native */
+import assert from 'assert';
 import { EventEmitter } from 'events';
 import mergeOptions from 'merge-options';
 
@@ -307,6 +308,74 @@ class FeedCrowdStorageDirectory {
 }
 
 
+/**
+ * Represents a subset of the feeds shared by a client and provides
+ * aggregate data reception and synchronization events.
+ * These groups can be used to organize feeds by subject, such as
+ * feeds participating in a particular document sync.
+ */
+class FeedGroup extends EventEmitter {
+
+    constructor(client, selector=()=>true) {
+        super();
+        this.client = client;
+        this.selector = selector;  // controls which feeds are members of this group
+        this.members = new Map();
+
+        this._initEvents();
+        this._initMembers();
+    }
+
+    isSynchronized() {
+        return ievery(this.members.entries(), 
+                ([feed, {loc, stats}]) => loc === FeedGroup.Loc.LOCAL ||
+                                          stats.index >= feed.length - 1);
+    }
+
+    _initEvents() {
+        this.client.crowd.on('feed:ready', feed => {
+            if (this.selector(feed)) this._add(feed);
+        });
+        this.client.on('feed:append', ev => {
+            if (this.selector(ev.feed)) {
+                var entry = ev.info = this.members.get(ev.feed);
+                this.emit('feed:append', ev);
+                this._updateStats(entry, ev);
+            }
+        });
+    }
+
+    _initMembers() {
+        for (let feed of this.client.crowd.feeds)
+            if (this.selector(feed)) this._add(feed);
+    }
+
+    _add(feed) {
+        this.members.set(feed, {loc: this._locationOf(feed),
+                                stats: {index: -1}});
+        feed.on('extension', (name, msg, peer) =>
+            this.emit('feed:extension', name, msg, peer));
+    }
+
+    _locationOf(feed) {
+        return this.client.crowd.localFeeds.includes(feed) 
+                    ? FeedGroup.Loc.LOCAL : FeedGroup.Loc.REMOTE;
+    }
+
+    _updateStats(entry, event) {
+        assert(entry);
+        if (entry.loc === FeedGroup.Loc.REMOTE) {
+            entry.stats.index = Math.max(entry.stats.index, event.index);
+            if (event.index >= event.feed.length - 1 && this.isSynchronized())
+                this.emit('sync');
+        }
+    }
+
+}
+
+FeedGroup.Loc = Object.freeze({LOCAL: 0, REMOTE: 1});
+
+
 function keyHex(feed) {
     return feed && feed.key && feed.key.toString('hex');
 }
@@ -316,6 +385,10 @@ function keyHexShort(feed) {
     return key && key.substring(0, 7);
 }
 
+function ievery(iterable, predicate) {
+    for (let el of iterable) if (!predicate(el)) return false;
+    return true;
+}
 
 
-module.exports = {FeedCrowd, FeedCrowdStorageDirectory, keyHex, keyHexShort}
+export { FeedCrowd, FeedCrowdStorageDirectory, FeedGroup, keyHex, keyHexShort}

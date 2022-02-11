@@ -6,7 +6,7 @@ if (typeof window !== 'undefined') {
 
 const {FeedClient} = require('./src/net/client'),
       {FeedCrowdStorageDirectory} = require('./src/net/crowd'),
-      {DocumentClient} = require('./src/net/docs'),
+      {DocumentClient} = require('./src/net/client-docs'),
       {App} = require('./src/ui/ui');
 
 import 'codemirror/lib/codemirror.css';
