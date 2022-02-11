@@ -1,36 +1,14 @@
 import { EventEmitter } from 'events';
-import Automerge, { BinarySyncMessage, Uint } from 'automerge';
+import Automerge from 'automerge';
+import { DocSet as DocSetBase, DocWithObservable } from 'automerge-slots';
 
 import _debug from 'debug';
 const debug = _debug('automerge-compat');
 
 
-class DocSet<D = any> extends EventEmitter {
-    docs = new Map<string, DocWithObervable<D>>()
+class DocSet<D = any> extends DocSetBase {
 
-    syncStates = new Map<string, Automerge.SyncState>()
-
-    createDoc(docId: string) {
-        return this._createDoc(docId).doc;
-    }
-
-    getDoc(docId: string) {
-        return this.docs.get(docId)?.doc;
-    }
-
-    setDoc(docId: string, d: Automerge.Doc<D>) {
-        var ed = this.docs.get(docId);
-        if (ed) ed.doc = d;
-        else throw new Error("cannot set doc without observable");  // @todo allow non-observed docs as well?
-        this.emit('change', docId, d);
-    }
-
-    _createDoc(docId: string) {
-        var newDoc = new DocWithSync<D>();
-        this.docs.set(docId, newDoc);
-        this.emit('change', docId, newDoc.doc);
-        return newDoc;
-    }
+    _mkDoc() { return new DocWithSync<D>(); }
 
     generateSyncMessages(peerId: string) {
         var msgs = new Map<string, Automerge.BinarySyncMessage>();
@@ -53,40 +31,13 @@ class DocSet<D = any> extends EventEmitter {
             else throw new Error(`receiving changes for doc '${docId}', which does not have a sync`);
         }
     }
-
-    observe<O>(docId: string, object: O, callback: Automerge.ObserverCallback<O>) {
-        var entry = this.docs.get(docId);
-        entry.observable.observe(object, callback);
-    }
-
-    registerHandler(handler: (docId: string, doc: Automerge.FreezeObject<D>) => void) {
-        this.on('change', handler);
-        /*
-         * This is kept here as reference. Looks like switching to Observable is
-         * a better alternative in the long run.
-        var hooks = handler[DocSet.HOOK] = [],
-            hookup = <T>(t: T) => { hooks.push(t); return t; },
-            stillOn = () => handler[DocSet.HOOK] === hooks;
-        for (let [docId, entry] of this.docs.entries()) {
-            entry.observable.observe(entry.doc,
-                hookup((diff, oldRev, newRev) => 
-                    stillOn() && handler(docId, newRev)))
-        }
-        */
-    }
-
-    unregisterHandler(handler: (docId: string, doc: Automerge.FreezeObject<D>) => void) {
-        this.off('change', handler);
-        /** @oops no way to unobserve in automerge? */
-        // for (let hook of handler[DocSet.HOOK] ?? []) { ... }
-        //delete handler[DocSet.HOOK];
-    }
-
-    static HOOK = Symbol('DocSet.HOOK')
 }
 
 type MultiSyncMessage = Map<string, Automerge.BinarySyncMessage>;
 
+/**
+ * Multiplexing messages from multiple documents into a single binary packet.
+ */
 namespace MultiSyncMessage {
 
     export function encode(msg: MultiSyncMessage): Uint8Array {
@@ -105,7 +56,7 @@ namespace MultiSyncMessage {
     export function _decode(data: Uint8Array): MultiSyncMessage {
         var pk = new BinaryPacking(data), msg: MultiSyncMessage = new Map, td = new TextDecoder;
         while (!pk.eof()) {
-            var k = td.decode(pk.get()), v = pk.get() as BinarySyncMessage;
+            var k = td.decode(pk.get()), v = pk.get() as Automerge.BinarySyncMessage;
             v.__binarySyncMessage = true;
             msg.set(k, v);
         }
@@ -127,9 +78,6 @@ class Connection<D = any> extends EventEmitter {
         super();
         this.ds = ds;
         if (onData) this.on('data', onData);
-    }
-
-    open() {
         this.ds.on('change', () => this.notify());
         Promise.resolve().then(() => this.notify());
     }
@@ -208,19 +156,10 @@ class BinaryPacking {
 }
 
 
-class DocWithObervable<D> {
-    doc: Automerge.Doc<D>
-    observable = new Automerge.Observable()
-
-    constructor() {
-        this.doc = Automerge.init<D>({observable: this.observable});
-    }
-}
-
 /**
  * Following `SYNC.md` from Automerge docs.
  */
-class DocWithSync<D> extends DocWithObervable<D> {
+class DocWithSync<D> extends DocWithObservable<D> {
     syncStates = new Map<string, Automerge.SyncState>()
 
     generateSyncMessages(peerId: string) {
@@ -248,4 +187,4 @@ class DocWithSync<D> extends DocWithObervable<D> {
 }
 
 
-export { DocSet, Connection, DocWithObervable, DocWithSync }
+export { DocSet, Connection, DocWithSync }

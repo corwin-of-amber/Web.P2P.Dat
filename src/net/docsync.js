@@ -20,7 +20,6 @@ class DocSync extends EventEmitter {
 
         this.docs = new DocSet();
         this.protocol = new Connection(this.docs, msg => this.sendMsg(msg));
-        this.protocol.open();
 
         this.docs.registerHandler((docId, doc) => this._onSetDoc(docId, doc));        
     }
