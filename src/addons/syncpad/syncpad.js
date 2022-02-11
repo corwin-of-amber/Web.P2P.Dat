@@ -106,27 +106,36 @@ class SyncPad {
         this._populate(obj.operations);
 
         this.amHandler = registerHandlerObj(subslots.operations, 
-            (newVal, newRev, oldRev, changes) => {
-                var diff = patchFromChanges(oldRev, changes);
+            (newVal, oldVal, newRev, oldRev, changes) => {
+                var diff = [].concat(...changes.map(co => co.ops));
                 debouncedPatch(newVal, diff);
                 //debouncedPatch.flush();
             });
-        
+
         const debouncedPatch = debounceQueue((values, diff) => {
             //let userId = this.firepad.serverAdapter.userId_;
+            let elemIds = automerge.Frontend.getElementIds(values),
+                lastIndex = -1;
             for (let entry of diff) {
-                if (entry.action === 'insert') {
-                    //console.log(entry.index, entry.value, `(${userId})`);
-                    var operation = {id: entry.elemId, v: JSON.parse(entry.value)};
-                    operation = this.tm.insert(entry.index, operation);
-                    this.firepad.data({operation});
-                    this._maybeReject();
-                }
-                else if (entry.action === 'set') {
-                    //console.log(entry.index, '-', entry.value, `(${userId})`);
-                    var elemId = automerge.Frontend.getElementIds(values)[entry.index],
-                        operation = {id: elemId, v: JSON.parse(entry.value)};
-                    this.tm.rebased(entry.index, operation)
+                if (entry.action === 'set') {
+                    var index = patchIndexOf(elemIds, entry);
+                    assert(index > lastIndex); /* one can only hope that within a single patch, changes arrive in ascending order... */
+                    if (entry.insert) {
+                        //console.log(entry.index, entry.value, `(${userId})`);
+                        var elemId = elemIds[index],
+                            operation = {id: elemId, v: JSON.parse(entry.value)};
+                        operation = this.tm.insert(index, operation);
+                        this.firepad.data({operation});
+                        this._maybeReject();
+                    }
+                    else {
+                        //console.log(entry.index, '-', entry.value, `(${userId})`);
+                        var elemId = entry.elemId,
+                            operation = {id: elemId, v: JSON.parse(entry.value)};
+                        assert(index >= 0);
+                        this.tm.rebased(index, operation)
+                    }
+                    lastIndex = index;
                 }
             }
         }, 50, {maxWait: 500, afterFlush: () => {
@@ -246,7 +255,7 @@ class FirepadShare {
 function registerHandlerWithChanges(docSlot, handler) {
     var lastRev = docSlot.get() || automerge.init(), h;
     docSlot.registerHandler(h = newRev => {
-        var changes = automerge.getChanges(lastRev, newRev),
+        var changes = automerge.getChanges(lastRev, newRev).map(b => automerge.decodeChange(b)),
             prev = lastRev;
         lastRev = newRev;  /* this has to occur *before* handler (async race!) */
         handler(newRev, prev, changes);
@@ -264,15 +273,22 @@ function registerHandlerObj(slot, handler) {
             changes = changes.filter(x => x.ops &&
                                      x.ops.some(o => o.obj === objectId));
             if (changes.length > 0) {
-                handler(slot.getFrom(newDoc), newDoc, oldDoc, changes);
+                handler(slot.getFrom(newDoc), slot.getFrom(oldDoc), newDoc, oldDoc, changes);
             }
         });
 }
 
-function patchFromChanges(oldDoc, changes) {
-    var oldState = automerge.Frontend.getBackendState(oldDoc);
-
-    return automerge.Backend.applyChanges(oldState, changes)[1].diffs;
+/** auxiliary function to interpret diff entries */
+function patchIndexOf(elemIds, op) {
+    if (op.elemId === '_head') {
+        assert(op.insert);
+        return 0;
+    }
+    else {
+        var index = elemIds.indexOf(op.elemId);
+        if (op.insert) index++;
+        return index;
+    }
 }
 
 
