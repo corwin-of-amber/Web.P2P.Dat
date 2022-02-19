@@ -74,12 +74,24 @@ class Connection<D = any> extends EventEmitter {
     paused = false
     queue: MultiSyncMessage[] = []
 
-    constructor(ds: DocSet<D>, onData?: (data: MultiSyncMessage) => void) {
+    constructor(ds: DocSet<D>, opts?: Connection.Options);
+    constructor(ds: DocSet<D>, onData?: Connection.Callback, opts?: Connection.Options);
+
+    constructor(ds: DocSet<D>, onData?: Connection.Callback | Connection.Options, opts?: Connection.Options) {
         super();
         this.ds = ds;
-        if (onData) this.on('data', onData);
-        this.ds.on('change', () => this.notify());
-        Promise.resolve().then(() => this.notify());
+        if (typeof onData === 'function') this.on('data', onData);
+        else if (typeof onData === 'object') opts ??= onData;
+
+        if (opts?.sync) {
+            this.ds.on('change', () => this.notify());
+            Promise.resolve().then(() => this.notify());
+        }
+        else {
+            const deferredNotify = deferred(() => this.notify());
+            this.ds.on('change', deferredNotify);
+            deferredNotify();
+        }
     }
 
     notify() {
@@ -120,6 +132,21 @@ class Connection<D = any> extends EventEmitter {
     _decode(data: Uint8Array): MultiSyncMessage {
         return MultiSyncMessage._decode(data);
     }
+}
+
+namespace Connection {
+    export type Callback = (data: MultiSyncMessage) => void;
+    export type Options = {sync?: boolean};
+}
+
+function deferred<T>(op: () => T) {
+    var flag = false;
+    return () => {
+        if (!flag) {
+            flag = true;
+            Promise.resolve().then(() => { flag = false; op(); });
+        }
+    };    
 }
 
 /**
