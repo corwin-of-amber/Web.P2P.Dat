@@ -112,6 +112,15 @@ class FeedCrowd extends EventEmitter {
         feed.opts = opts;
         feed.meta = mergeOptions(this.opts.meta, meta);
 
+        for (let ext of opts.extensions ?? []) {
+            feed.registerExtension(ext, {
+                onmessage: (msg, peer) => {
+                    this.emit('feed:extension', feed, {name: ext, msg, peer});
+                },
+                onerror: console.error
+            });
+        }
+
         feed.on('ready', () => {
             console.log(`feed %c${keyHexShort(feed)}`, 'color: blue;');
             this.emit('feed:ready', feed);
@@ -201,7 +210,6 @@ class Wire extends Protocol {
 
     share(feed) {
         if (!this._shared.has(feed)) {
-            this._validateExtensions(feed);
             this._shared.add(feed);
             feed.replicate(this, {live: true});
         }
@@ -214,13 +222,6 @@ class Wire extends Protocol {
                 key: keyHex(x), opts: x.opts, meta: x.meta
             }));
             this.control({have: entries});
-        }
-    }
-
-    _validateExtensions(feed) {
-        for (let e of feed.extensions) {
-            if (!this.extensions.includes(e))
-                console.warn(`hypercore extension '${e}' is not registered with this crowd`);
         }
     }
 
@@ -353,8 +354,6 @@ class FeedGroup extends EventEmitter {
     _add(feed) {
         this.members.set(feed, {loc: this._locationOf(feed),
                                 stats: {index: -1}});
-        feed.on('extension', (name, msg, peer) =>
-            this.emit('feed:extension', name, msg, peer));
     }
 
     _locationOf(feed) {

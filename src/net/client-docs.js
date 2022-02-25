@@ -2,7 +2,7 @@ import assert from 'assert';
 
 import { FeedClient } from './client';
 import { DocSync } from './docsync';
-import { FeedGroup } from './crowd';
+import { FeedGroup, keyHexShort } from './crowd';
 
 
 
@@ -20,10 +20,25 @@ class DocumentClient extends FeedClient {
         this.docGroup = new FeedGroup(this, 
             feed => feed.meta && feed.meta.type === 'docsync');
 
-        var outqueue = {}, inqueue = [], engage = true,
-            outpush = (k, d) => outqueue[k] = this._combine(outqueue[k], d); /** @hmm ok? */
-
         this.sync = new DocSync();
+
+        this.sync.on('data', d => {
+            this.docFeeds.transient.extension('crdt', Buffer.from(d));
+        });
+
+        this.crowd.on('feed:extension', (feed, {name, msg, peer}) => {
+            if (name === 'crdt')
+                this.sync.data(msg.slice(0, msg.length - 9));
+        });
+
+        this.docGroup.on('feed:append', ev => {
+            this.sync.protocol.poke();
+        });
+
+        /*
+        var outqueue = {}, inqueue = [], engage = true,
+            outpush = (k, d) => outqueue[k] = this._combine(outqueue[k], d); /** @hmm ok? *
+
         this.sync.on('data', d => {
             if (!d.changes && !engage) { outpush(d.docId, d); return; }
             var feed = d.changes ? this.docFeeds.changes : this.docFeeds.transient;
@@ -45,7 +60,7 @@ class DocumentClient extends FeedClient {
             for (let d of Object.values(outqueue))
                 this.sync.emit('data', d);
             outqueue = {};
-        });
+        });*/
 
         this.isSynchronized = () => engage && this.docGroup.isSynchronized();
     }
@@ -57,15 +72,19 @@ class DocumentClient extends FeedClient {
 
     async _initFeeds() {
         var d = this.docFeeds, type = 'docsync';
-        d.changes = d.changes || await this.create({}, {type}, false);
-        d.transient = d.transient ||
-                await this.create({extensions: ['shout']}, {type, transitive: false}, false);
+        //d.changes = d.changes || await this.create({}, {type}, false);
+        if (!d.transient) {
+            d.transient = await this.create({extensions: ['shout', 'crdt']},
+                {type, transitive: false}, false);
+            d.transient.append('^'); /* poke peers */
+        }
     }
 
-    /** Merges clock values from two messages */
+    /*
+     ** Merges clock values from two messages *
     _combine(d1, d2) {
         if (!d1 || !d2) return d1 ?? d2;
-        /**/ assert(d1.docId == d2.docId); /**/
+        /** assert(d1.docId == d2.docId); /**
         d1.clock = this._countersMax(d1.clock, d2.clock);
         return d1;
     }
@@ -75,16 +94,18 @@ class DocumentClient extends FeedClient {
             cobj1[k] = Math.max(cobj1[k] || 0, v);
         }
         return cobj1;
-    }
+    }*/
 
     shout() {
         this.docFeeds.transient.extension('shout', Buffer.from(''));
     }
 
     _tuneInForShouts() {
-        this.docGroup.on('feed:extension', (name, msg, peer) => {
-            console.log(`${name} %c${peer.stream.stream.id.slice(0,7)}`, 'color: green;');
-            if (name === 'shout') this.emit('shout');
+        this.crowd.on('feed:extension', (feed, {name, msg, peer}) => {
+            if (name === 'shout') {
+                console.log(`${name} %c${keyHexShort(feed)}`, 'color: green;');
+                this.emit('shout');
+            }
         });
     }
 

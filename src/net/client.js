@@ -37,6 +37,17 @@ const DEFAULT_OPTIONS = {
         }
     };
 
+/* Use these options for connecting via a host-local webrtc-hub */
+const LOCAL_OPTIONS = {
+        servers:{
+            hub: 'ws://localhost:3300',
+            ice: [
+                {urls: ['turn:localhost:3478'],
+                username: 'power',
+                credential: 'to-the-people'}
+            ]
+    }};
+
 
 
 class SwarmClient extends EventEmitter {

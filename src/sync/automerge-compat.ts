@@ -70,18 +70,21 @@ namespace MultiSyncMessage {
  */
 class Connection<D = any> extends EventEmitter {
     ds: DocSet<D>
-    peerId = '*'
+    peerId = '*'  /** @todo should probably be unique per connection */
     paused = false
     queue: MultiSyncMessage[] = []
+    opts: Connection.Options
 
     constructor(ds: DocSet<D>, opts?: Connection.Options);
     constructor(ds: DocSet<D>, onData?: Connection.Callback, opts?: Connection.Options);
 
     constructor(ds: DocSet<D>, onData?: Connection.Callback | Connection.Options, opts?: Connection.Options) {
         super();
-        this.ds = ds;
         if (typeof onData === 'function') this.on('data', onData);
         else if (typeof onData === 'object') opts ??= onData;
+
+        this.ds = ds;
+        this.opts = opts = {sync: false, selfLoop: true, ...opts};
 
         if (opts?.sync) {
             this.ds.on('change', () => this.notify());
@@ -96,6 +99,18 @@ class Connection<D = any> extends EventEmitter {
 
     notify() {
         var msg = this.ds.generateSyncMessages(this.peerId);
+        if (msg) {
+            this._send(msg);
+            if  (this.opts.selfLoop)
+                this.ds.receiveSyncMessages(this.peerId, msg);
+        }
+    }
+
+    /** 
+     * Used to resync with a newcomer.
+     */
+    poke() {
+        var msg = this.ds.generateSyncMessages(null);
         if (msg)
             this._send(msg);
     }
@@ -136,7 +151,7 @@ class Connection<D = any> extends EventEmitter {
 
 namespace Connection {
     export type Callback = (data: MultiSyncMessage) => void;
-    export type Options = {sync?: boolean};
+    export type Options = {sync?: boolean, selfLoop?: boolean};
 }
 
 function deferred<T>(op: () => T) {
@@ -207,6 +222,7 @@ class DocWithSync<D> extends DocWithObservable<D> {
     }
 
     getSyncState(peerId: string) {
+        if (!peerId) return Automerge.initSyncState();
         var v = this.syncStates.get(peerId);
         if (!v) this.syncStates.set(peerId, v = Automerge.initSyncState());
         return v;
