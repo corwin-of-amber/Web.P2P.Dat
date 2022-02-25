@@ -11,7 +11,8 @@ import PlainList from './components/plain-list.vue';
 import ListOfPeers from './components/list-of-peers.vue';
 import ButtonJoin from './components/button-join.vue';
 import DocumentsRaw from './components/treedoc/documents-raw.vue';
-
+import syncpad from './components/syncpad/syncpad.vue';
+import ListOfDocuments from './components/syncpad/list-of-documents.vue';
 
 
 Vue.component('p2p.source-peers', {
@@ -319,7 +320,7 @@ Vue.component('p2p.file-object', {
         })
     }
 });
-
+/*
 const {SyncPad, FirepadShare} = require('../addons/syncpad');
 
 Vue.component('syncpad', {
@@ -331,7 +332,7 @@ Vue.component('syncpad', {
             this.pad = new SyncPad(this.$refs.editor.cm, slot);
         });
     }
-});
+});*/
 
 // - obsolete; superseded by `syncpad`
 /*
@@ -347,14 +348,6 @@ Vue.component('automerge-codemirror', {
     }
 });
 */
-
-Vue.component('codemirror', {
-    template: `<div></div>`,
-    mounted() {
-        var CodeMirror = require('codemirror');
-        this.cm = new CodeMirror(this.$el);
-    }
-});
 
 Vue.component('drawer', {
     data: () => ({ open: false }),
@@ -379,7 +372,7 @@ Vue.component('document-preview', {
         showText(slot, kind) {
             switch (kind) {
                 case 'object/FirepadShare': this.kind = 'syncpad'; break;
-                case 'text/automerge': this.kind = 'automerge-codemirror'; break;
+                //case 'text/automerge': this.kind = 'automerge-codemirror'; break;
                 default:
                     throw new Error(`unknown text document, kind '${kind}'`);
             }
@@ -392,8 +385,8 @@ Vue.component('document-preview', {
         showObject(vm, slot) {
             switch (vm.kind) {
                 case 'object/FirepadShare':
-                case 'text/automerge':
-                    this.showText(slot, vm.kind);  return true;
+                //case 'text/automerge':
+                //    this.showText(slot, vm.kind);  return true;
                 case 'file':
                     this.showFile(vm.coerced());   return true;
             }
@@ -451,7 +444,8 @@ class App {
             computed: {
                 ready() { return this.clientState && this.$refs.join.ready; }
             },
-            components: { ButtonJoin, ListOfPeers, DocumentsRaw }
+            components: { ButtonJoin, ListOfPeers, DocumentsRaw,
+                syncpad, ListOfDocuments }
         });
         this.vue.$on('doc:action', ev => {
             switch (ev.type) {

@@ -121,3 +121,24 @@
 button:focus, button:active {
     outline: none;
 }
+
+body.syncpad-ide {
+    margin: 0;
+    padding: 0;
+}
+
+div.syncpad-ide {
+    display: flex;
+    height: 100%;
+}
+
+div.syncpad-ide #outline-area {
+    flex-basis: 20%;
+    padding: 9px;
+    border-right: 1px solid gray;
+    overflow: hidden;
+}
+
+div.syncpad-ide #editor-area {
+    flex-grow: 1;
+}

@@ -10,7 +10,6 @@ export default {
         connectTimeout: {type: Number, default: 25000}
     },
     data: () => ({ pending: null, clientChannels: undefined, ready: false }),
-    template: `<span></span>`,
     computed: {
         status() {
             if ((this.pending === 'connecting') === this.joined)  // sneaky

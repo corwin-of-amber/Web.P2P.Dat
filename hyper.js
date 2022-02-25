@@ -87,10 +87,10 @@ function main_syncdoc_headless() {
 
 async function createText() {
     var slot = app.vue.$refs.pad.slot;
-    slot.get() || slot.set({operations: ['[{"o":["a"]}]'], cursors: {}});
+    slot.set(syncpad.FirepadShare.fromText('a'));
 
     //slot = app.vue.$refs.otherPad.slot;  // create a fork
-    c1.sync.docs.setDoc('d2', automerge.merge(automerge.init(), c1.sync.docs.getDoc('d1')));
+    //c1.sync.docs.setDoc('d2', automerge.merge(automerge.init(), c1.sync.docs.getDoc('d1')));
 
     var ds = c1.sync.docs;
 
@@ -109,10 +109,17 @@ async function createText() {
 async function main_syncpad() {
     var c1 = new DocumentClient();
 
-    var app = App.start().attach(c1);
+    var app = App.start({channel: 'doc2'}).attach(c1);
 
     await c1.init();
 
+    var ds = c1.sync;
+
+    app.vue.$on('open', (ev) => {
+        app.vue.$refs.pad.slot = ev.slot;
+    });
+
+    /*
     var slot1 = c1.sync.path('d1', ['firepad']);
     app.vue.$refs.pad.slot = slot1;
     var slot2 = c1.sync.path('d2', ['firepad']);
@@ -124,7 +131,7 @@ async function main_syncpad() {
         pad2.firepad.setUserId('pad2');
         Object.assign(window, {pad1, pad2});
     });
-
+    */
     window.addEventListener('beforeunload', () => {
         c1.close();
     });

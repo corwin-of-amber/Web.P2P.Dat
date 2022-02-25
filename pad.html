@@ -1,22 +1,28 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <link rel="stylesheet" type="text/css" href="./dist/codemirror.css">
+        <link rel="icon" href="img/yarn.png" type="image/png">
 
-        <script src="hyper.bundle.js"></script>
-        <link rel="stylesheet" type="text/css" href="./src/ui/app.css">
+        <script src="hyper.js"></script>
     </head>
-    <body>
-        <div id="app">
-            <p2p.button-join channel="doc1"></p2p.button-join>
-            <p2p.list-of-peers ref="peers"></p2p.list-of-peers>
+    <body class="syncpad-ide">
+        <div id="app" class="syncpad-ide">
+            <div id="outline-area">
+                <button-join ref="join" :channel="channel"></button-join>
+                <list-of-peers ref="peers"></list-of-peers>
+                <list-of-documents ref="docs"
+                    @created="$event.initiator && $emit('open', $event)"
+                    @select="$emit('open', $event)"></list-of-documents>
+            </div>
             <div id="editor-area">
                 <syncpad ref="pad"></syncpad>
                 <syncpad ref="otherPad"></syncpad>
             </div>
-            <!-- <p2p.documents-raw ref="documents"></p2p.documents-raw> -->
         </div>
     </body>
 
     <script>main_syncpad();</script>
+
+    <!-- @kremlin.plug -->
+    <script>k?.config({main: ['index.html', 'pad.html']});</script>    
 </html>
