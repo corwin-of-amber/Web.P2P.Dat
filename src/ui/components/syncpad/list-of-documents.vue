@@ -1,7 +1,10 @@
 <template>
-    <div class="list-of-documents">
-        <div class="toolbar">
-            <button @click="createText">+</button>
+    <div class="list-of-documents ui-font-default">
+        <div class="list-title">
+            <span>Documents</span>
+            <div class="toolbar">
+                <button @click="createText">+</button>
+            </div>
         </div>
         <ul>
             <li v-for="doc in docs" :key="doc.id"
@@ -22,10 +25,19 @@ ul {
 li {
     padding: 0 4px;
     cursor: pointer;
+    font-size: 11pt;
 }
 li.selected {
     background: blue;
     color: white;
+}
+div.list-title {
+    display: flex;
+}
+div.list-title > span {
+    flex-grow: 1;
+    align-self: flex-end;
+    font-size: 10pt;
 }
 </style>
 

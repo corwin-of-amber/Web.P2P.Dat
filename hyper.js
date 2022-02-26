@@ -42,25 +42,34 @@ function main_chat_headless(channel='lobby') {
     });
 }
 
-
-async function createDocument() {
-    await c1.init();
-
-    c1.sync.create('d1');
-    c1.sync.change('d1', d => { d.name = "meg"; d.cards = []; });
+/**
+ * `?doc2` --> {channel: 'doc2'}
+ * `?channel=doc2&persist=true` --> {channel: 'doc2', persist: true}
+ * `?doc2&persist=true` --> {channel: 'doc2', persist: true}
+ */
+function parseParams(sp = new URLSearchParams(window.location.search)) {
+    var opts = {}, bools = [/* tbd */];
+    for (let [k, v] of sp.entries()) {
+        if (v === '' && !opts.channel)
+            opts.channel = k;
+        else if (k === 'c')
+            opts.channel = v;
+        else if (bools.includes(k))
+            opts[k] == ['true', 'yes', 'on'].includes(v);
+        else
+            opts[k] = v;
+    }
+    return opts;
 }
 
-
-function main_syncdoc(sp) {
-    var fcsd = sp.has('persist') ? new FeedCrowdStorageDirectory(sp.get('persist')) : null;
+function main_syncdoc(opts = parseParams()) {
+    var fcsd = opts.persist ? new FeedCrowdStorageDirectory(opts.persist) : null;
 
     var c1 = new DocumentClient(
         fcsd ? {storageFactory: fcsd.storageFactory} : {}
     );
 
-    window.fcsd = fcsd;
-
-    App.start({channel: 'doc2'}).attach(c1);
+    App.start({channel: opts.channel || 'doc2'}).attach(c1);
 
     const {DirectorySync} = require('./src/addons/fs-sync');
 
@@ -72,85 +81,49 @@ function main_syncdoc(sp) {
 
     window.addEventListener('beforeunload', () => {
         c1.close();
-        window.c1 = window.createDocument = window.ds = null;
+        window.c1 = window.createDocument = window.fcsd = null;
     });
-    Object.assign(window, {c1, createDocument});
+    Object.assign(window, {c1, fcsd});
 }
 
-function main_syncdoc_headless() {
+function main_syncdoc_headless(opts) {
     var c1 = new DocumentClient();
-    c1.join('doc2');
+    c1.join(opts.channel || 'doc2');
 
     c1.on('change', console.log);
 }
 
 
-async function createText() {
-    var slot = app.vue.$refs.pad.slot;
-    slot.set(syncpad.FirepadShare.fromText('a'));
-
-    //slot = app.vue.$refs.otherPad.slot;  // create a fork
-    //c1.sync.docs.setDoc('d2', automerge.merge(automerge.init(), c1.sync.docs.getDoc('d1')));
-
-    var ds = c1.sync.docs;
-
-    function sync12() {
-        ds.setDoc('d1', automerge.merge(ds.getDoc('d1'), ds.getDoc('d2')));
-    }
-
-    function sync21() {
-        ds.setDoc('d2', automerge.merge(ds.getDoc('d2'), ds.getDoc('d1')));
-    }
-
-    Object.assign(window, {sync12, sync21});
-}
-
-
-async function main_syncpad() {
+async function main_syncpad(opts) {
     var c1 = new DocumentClient();
 
-    var app = App.start({channel: 'doc2'}).attach(c1);
+    var app = App.start({channel: opts.channel || 'doc2'}).attach(c1);
 
     await c1.init();
-
-    var ds = c1.sync;
 
     app.vue.$on('open', (ev) => {
         app.vue.$refs.pad.slot = ev.slot;
     });
 
-    /*
-    var slot1 = c1.sync.path('d1', ['firepad']);
-    app.vue.$refs.pad.slot = slot1;
-    var slot2 = c1.sync.path('d2', ['firepad']);
-    app.vue.$refs.otherPad.slot = slot1;
-
-    process.nextTick(() => {
-        var pad1 = app.vue.$refs.pad.pad, pad2 = app.vue.$refs.otherPad.pad;
-        pad1.firepad.setUserId('pad1');
-        pad2.firepad.setUserId('pad2');
-        Object.assign(window, {pad1, pad2});
-    });
-    */
     window.addEventListener('beforeunload', () => {
         c1.close();
     });
-    Object.assign(window, {c1, createText});
-
-    //createText();
+    Object.assign(window, {c1});
 }
 
 function main() {
-    var sp = new URLSearchParams(window.location.search);
-    if (sp.has('chat'))  main_chat();
-    else                 main_syncdoc(sp);
+    var sp = new URLSearchParams(window.location.search),
+        opts = parseParams(sp);
+    if (sp.has('chat'))  main_chat();  /* defunct */
+    else                 main_syncdoc(opts);
 }
 
 function main_headless() {
     // at least I manage to amuse myself
-    var sp = new URLSearchParams(process.argv.slice(2).join('&'));
+    var sp = new URLSearchParams(process.argv.slice(2).join('&')),
+        opts = parseParams(sp);
     if (sp.has('chat'))  main_chat_headless();
-    else                 main_syncdoc_headless();
+    else                 main_syncdoc_headless(opts);
 }
 
 

@@ -1,4 +1,16 @@
 
+.ui-font-default {
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+}
+
+div.list-title {
+    border-bottom: 1px solid #ddd;
+}
+
+div.list-title span {
+    font-size: 10pt;
+}
+
 .p2p-list-of-feeds {
     font-size: 80%;
 }

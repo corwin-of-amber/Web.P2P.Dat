@@ -40,7 +40,7 @@ export default {
             // XXX
             if      (typeof o === 'string')            return 'text/plain';
             else if (o instanceof automerge.Text)      return 'text/automerge';
-            else if (typeof o === 'object')
+            else if (typeof o === 'object' && o !== null)
                 return o.$type ? `object/${o.$type}` : 'object';
             else return 'value';
         },
