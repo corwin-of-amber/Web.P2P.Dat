@@ -13,7 +13,7 @@
     "@corwin.amber/webrtc-swarm": "file:subsidiaries/webrtc-swarm",
     "@koush/wrtc": "^0.5.2",
     "automerge": "^1.0.1-preview.7",
-    "automerge-slots": "file:subsidiaries/automerge-slots",
+    "automerge-slots": "^1.1.0",
     "codemirror": "^5.48.2",
     "cuid": "^2.1.8",
     "duplexify": "^4.1.1",
