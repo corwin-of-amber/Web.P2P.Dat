@@ -31,6 +31,14 @@ class DocSet<D = any> extends DocSetBase {
             else throw new Error(`receiving changes for doc '${docId}', which does not have a sync`);
         }
     }
+
+    resetSyncState(peerId?: string) {
+        for (let [docId, doc] of this.docs.entries()) {
+            if (doc instanceof DocWithSync) {
+                doc.resetSyncState(peerId);
+            }
+        }
+    }
 }
 
 type MultiSyncMessage = Map<string, Automerge.BinarySyncMessage>;
@@ -110,9 +118,8 @@ class Connection<D = any> extends EventEmitter {
      * Used to resync with a newcomer.
      */
     poke() {
-        var msg = this.ds.generateSyncMessages(null);
-        if (msg)
-            this._send(msg);
+        this.ds.resetSyncState(this.peerId); /** @todo probably not the best way to do that? */
+        this.notify();
     }
 
     data(data: Uint8Array) {
@@ -226,6 +233,11 @@ class DocWithSync<D> extends DocWithObservable<D> {
         var v = this.syncStates.get(peerId);
         if (!v) this.syncStates.set(peerId, v = Automerge.initSyncState());
         return v;
+    }
+
+    resetSyncState(peerId?: string) {
+        if (peerId) this.syncStates.delete(peerId)
+        else this.syncStates.clear();
     }
 }
 
