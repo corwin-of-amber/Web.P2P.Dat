@@ -1,5 +1,5 @@
 {
-  "name": "dat-p2p-crowd",
+  "name": "ronin-p2p",
   "version": "0.1.0",
   "description": "",
   "main": "build/kremlin/index.html",
@@ -10,7 +10,7 @@
     "jsdom": {}
   },
   "dependencies": {
-    "@corwin.amber/webrtc-swarm": "file:subsidiaries/webrtc-swarm",
+    "@corwin.amber/webrtc-swarm": "^2.9.0",
     "@koush/wrtc": "^0.5.2",
     "automerge": "^1.0.1-preview.7",
     "automerge-slots": "^1.1.0",

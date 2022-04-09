@@ -40,7 +40,7 @@ var server = new Turn({  // set options
     authMech: 'long-term',
     credentials,
     poke,
-    debugLevel: 'TRACE'
+    debugLevel: process.env['DEBUG'] ?? 'TRACE'
 });
 server.start();
 
