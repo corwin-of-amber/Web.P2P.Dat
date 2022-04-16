@@ -1,6 +1,10 @@
 <template>
-    <span></span>
+    <span class="source-placeholder"></span>
 </template>
+
+<style>
+span.source-placeholder { display: none; }
+</style>
 
 <script>
 export default {

@@ -8,6 +8,7 @@ import './menu.css';
 
 import EventHook from './components/event-hook.vue';
 import PlainList from './components/plain-list.vue';
+import SourceStatus from './components/source/status.vue';
 import ListOfPeers from './components/list-of-peers.vue';
 import ButtonJoin from './components/button-join.vue';
 import DocumentsRaw from './components/treedoc/documents-raw.vue';
@@ -444,7 +445,7 @@ class App {
             computed: {
                 ready() { return this.clientState && this.$refs.join.ready; }
             },
-            components: { ButtonJoin, ListOfPeers, DocumentsRaw,
+            components: { SourceStatus, ButtonJoin, ListOfPeers, DocumentsRaw,
                 syncpad, ListOfDocuments }
         });
         this.vue.$on('doc:action', ev => {
@@ -454,6 +455,11 @@ class App {
             }
         });
     }
+
+    connect() {
+        this.vue.$refs.source.connect();
+    }
+
     attach(client) {
         this.vue.client = client;  // non-reactive
         var update = () =>
