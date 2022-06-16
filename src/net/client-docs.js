@@ -76,8 +76,8 @@ class DocumentClient extends FeedClient {
         if (!d.transient) {
             d.transient = await this.create({extensions: ['shout', 'crdt']},
                 {type, transitive: false}, false);
-            d.transient.append('^'); /* poke peers */
         }
+        d.transient.append('^'); /* poke peers */
     }
 
     /*

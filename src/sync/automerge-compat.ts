@@ -39,6 +39,49 @@ class DocSet<D = any> extends DocSetBase {
             }
         }
     }
+
+    save() {
+        let m: BinaryMap<Uint8Array> = new Map;
+        for (let [docId, doc] of this.docs.entries())
+            m.set(docId, Automerge.save(doc.doc));
+        return BinaryMap.encode(m);
+    }
+}
+
+
+type BinaryMap<D extends Uint8Array> = Map<string, D>;
+
+namespace BinaryMap {
+
+    export function encode<D extends Uint8Array>(bm: BinaryMap<D>): Uint8Array {
+        return pack(bm).buf;
+    }
+
+    export function decode<D extends Uint8Array>(data: Uint8Array, make: (b: Uint8Array) => D): BinaryMap<D> {
+        return unpack(new BinaryPacking(data), make);
+    }
+
+    export function pack<D extends Uint8Array>(bm: BinaryMap<D>): BinaryPacking {
+        var pk = new BinaryPacking(null), entries = [], te = new TextEncoder;
+        for (let [k, v] of bm.entries()) {
+            var bk = te.encode(k); entries.push([bk, v]);
+            pk.dry(bk); pk.dry(v);
+        }
+        pk = new BinaryPacking(new Uint8Array(pk.cur));
+        for (let [k, v] of entries) {
+            pk.put(k); pk.put(v);
+        }
+        return pk;
+    }
+
+    export function unpack<D extends Uint8Array>(pk: BinaryPacking, make: (b: Uint8Array) => D): BinaryMap<D> {
+        var bm: BinaryMap<D> = new Map, td = new TextDecoder;
+        while (!pk.eof()) {
+            var k = td.decode(pk.get()), v = make(pk.get());
+            bm.set(k, v);
+        }
+        return bm;
+    }
 }
 
 type MultiSyncMessage = Map<string, Automerge.BinarySyncMessage>;
@@ -49,6 +92,8 @@ type MultiSyncMessage = Map<string, Automerge.BinarySyncMessage>;
 namespace MultiSyncMessage {
 
     export function encode(msg: MultiSyncMessage): Uint8Array {
+        return BinaryMap.encode(msg);
+        /*
         var pk = new BinaryPacking(null), entries = [], te = new TextEncoder;
         for (let [k, v] of msg.entries()) {
             var bk = te.encode(k); entries.push([bk, v]);
@@ -58,10 +103,17 @@ namespace MultiSyncMessage {
         for (let [k, v] of entries) {
             pk.put(k); pk.put(v);
         }
-        return pk.buf;
+        return pk.buf;*/
     }
 
     export function _decode(data: Uint8Array): MultiSyncMessage {
+        var pk = new BinaryPacking(data);
+        return BinaryMap.decode(data, b => {
+            let v = b as Automerge.BinarySyncMessage;
+            v.__binarySyncMessage = true;
+            return v;
+        });
+        /*
         var pk = new BinaryPacking(data), msg: MultiSyncMessage = new Map, td = new TextDecoder;
         while (!pk.eof()) {
             var k = td.decode(pk.get()), v = pk.get() as Automerge.BinarySyncMessage;
@@ -69,6 +121,7 @@ namespace MultiSyncMessage {
             msg.set(k, v);
         }
         return msg;
+        */
     }
 
 }
@@ -238,6 +291,10 @@ class DocWithSync<D> extends DocWithObservable<D> {
     resetSyncState(peerId?: string) {
         if (peerId) this.syncStates.delete(peerId)
         else this.syncStates.clear();
+    }
+
+    save() {
+        return Automerge.save(this.doc);
     }
 }
 

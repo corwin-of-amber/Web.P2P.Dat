@@ -1,11 +1,12 @@
-const _ = require('lodash'),
-      assert = require('assert'),
-      through2 = require('through2');
+import assert from 'assert';
+import _ from 'lodash';
+import through2 from 'through2';
+import automerge from 'automerge';
+import CodeMirror from 'codemirror';  // need both cm5 and cm6 until the former becomes obsolete
+import { EditorState } from '@codemirror/state';
+import { FirepadCore, TextOperation } from 'firepad-core';
 
-const automerge = require('automerge'),
-      {FirepadCore, TextOperation} = require('firepad-core'),
-      {FirepadTreeMerge} = require('./firepad-conflow');
-
+import { FirepadTreeMerge } from './firepad-conflow';
 
 
 
@@ -23,10 +24,10 @@ class SyncPad {
      * @param {CodeMirror.Editor} editor a CodeMirror editor instance
      * @param {DocumentSlotInterface} slot references an object in an Automerge
      *   doc that will be used to store and synchronize the text
-     * @param {object} opts options passed to FirepadCore
+     * @param {object} opts options passed to FirepadCore and/or EditorState
      */
     constructor(editor, slot, opts={}) {
-        this.editor = editor;
+        this.editor = this._initializeEditor(editor, opts);
         this.slot = slot;
 
         this.firepad = new FirepadCore(this.editor, opts);
@@ -208,11 +209,20 @@ class SyncPad {
         }
     }
 
+    _initializeEditor(editor, opts) {
+        switch (editor.constructor.name) {
+        case 'CodeMirror':  // v5
+            editor.swapDoc(new CodeMirror.Doc('', opts.mode ?? editor.getOption('mode'))); break;
+        case 'EditorView':  // v6
+            editor.setState(EditorState.create({extensions: opts.extensions})); break;
+        }
+        return editor;
+    }
+
     _populate(operations) {
         assert(!this.tm);
-
-        // Start a new doc; this clears history and does not emit 'change'
-        this.editor.swapDoc(new CodeMirror.Doc('', this.editor.getOption('mode')));
+        assert(this.editor.state?.doc ? this.editor.state.doc.length === 0
+                                      : this.editor.getValue() === '');
 
         this.tm = FirepadTreeMerge.from(this._withIds(operations));
         this.firepad.data({operation: this.tm.recompose()});

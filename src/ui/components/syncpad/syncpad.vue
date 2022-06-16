@@ -3,7 +3,8 @@
 </template>
 
 <script>
-import codemirror from './codemirror5.vue';
+import { lineNumbers, highlightActiveLineGutter } from '@codemirror/view';
+import codemirror from './codemirror6.vue';
 import { SyncPad } from '../../../addons/syncpad';
 
 
@@ -19,7 +20,9 @@ export default {
         },
         refresh() {
             if (this.pad) this.pad.destroy();
-            this.pad = new SyncPad(this.$refs.editor.cm, this.slot);
+            this.pad = new SyncPad(this.$refs.editor.cm, this.slot, {
+                extensions: [lineNumbers(), highlightActiveLineGutter()]
+            });
         }
     },
     components: { codemirror }

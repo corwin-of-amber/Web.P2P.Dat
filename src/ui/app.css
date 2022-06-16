@@ -116,18 +116,22 @@ div.list-title span {
     background: #00000040;
 }
 
-.drawer .CodeMirror,
+.drawer .cm-editor,
 .drawer object {
     display: block;
     width: 100%;
 }
-.drawer .CodeMirror,
+.drawer .cm-editor,
 .drawer object[type='application/pdf'] {
     height: calc(100% - 17px);
 }
 
-#editor-area .CodeMirror {
-    height: 40%;
+#editor-area .cm-editor {
+    height: 100%;
+}
+#editor-area .cm-activeLineGutter {
+    background-color: #dde;
+    color: #33a;
 }
 
 button:focus, button:active {

@@ -10,6 +10,8 @@
     "jsdom": {}
   },
   "dependencies": {
+    "@codemirror/state": "^6.0.0",
+    "@codemirror/view": "^6.0.0",
     "@corwin.amber/webrtc-swarm": "^2.9.0",
     "@koush/wrtc": "^0.5.2",
     "automerge": "^1.0.1-preview.7",
@@ -17,7 +19,7 @@
     "codemirror": "^5.48.2",
     "cuid": "^2.1.8",
     "duplexify": "^4.1.1",
-    "firepad-core": "^1.5.10-rc1",
+    "firepad-core": "github:corwin-of-amber/firepad-core",
     "glob-all": "^3.2.1",
     "hypercore": "^9.12.0",
     "lodash": "^4.17.20",
@@ -33,9 +35,6 @@
     "vue": "^2.6.10",
     "vue-context": "^6.0.0",
     "websocket": "^1.0.33"
-  },
-  "optionalDependencies": {
-    "wrtc": "^0.4.7"
   },
   "devDependencies": {
     "@types/node": "^17.0.15",
