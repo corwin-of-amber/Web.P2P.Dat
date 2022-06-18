@@ -3,6 +3,7 @@
 </template>
 
 <script>
+/** @todo make this a thin adapter on top of `EventHook` class from `core/events` */
 export default {
     props: ['receiver', 'on'],
     mounted() {

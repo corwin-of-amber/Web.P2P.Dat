@@ -9,44 +9,13 @@ import './menu.css';
 import EventHook from './components/event-hook.vue';
 import PlainList from './components/plain-list.vue';
 import SourceStatus from './components/source/status.vue';
+import SourcePeers from './components/source/peers.vue';
 import ListOfPeers from './components/list-of-peers.vue';
 import ButtonJoin from './components/button-join.vue';
 import DocumentsRaw from './components/treedoc/documents-raw.vue';
 import syncpad from './components/syncpad/syncpad.vue';
 import ListOfDocuments from './components/syncpad/list-of-documents.vue';
 
-
-Vue.component('p2p.source-peers', {
-    data: () => ({ self: undefined, peers: [] }),
-    template: `<span></span>`,
-    mounted() {
-        this.$root.$watch('clientState', (state) => {
-            this.unregister(); if (state) this.register(state.client);
-        }, {immediate: true});
-    },
-    methods: {
-        updatePeers(client) {
-            this.self = client;
-            this.peers.splice(0, Infinity, ...client.getPeers());
-        },
-        register(client) {
-            client.deferred.init.then(() => {
-                var cb = () => this.updatePeers(client);
-                client.on('peer:join', cb);
-                client.on('peer:leave', cb);
-                cb();
-                this._registered = {client, cb};
-            })
-        },
-        unregister() {
-            if (this._registered) {
-                var {client, cb} = this._registered;
-                client.removeListener('peer:join', cb);
-                client.removeListener('peer:leave', cb);
-            }
-        }
-    }
-});
 
 
 Vue.component('p2p.source-messages', {
@@ -225,11 +194,6 @@ Vue.component('p2p.message-input-box', {
 });
 
 
-
-
-Vue.component('p2p.document-context-menu', );
-
-
 const {VideoIncoming} = require('../addons/video');
 
 Vue.component('p2p.source-video', {
@@ -237,7 +201,7 @@ Vue.component('p2p.source-video', {
     data: () => ({ streams: [], activePeers: [] }),
     template: `
         <span>
-            <p2p.source-peers ref="source"/>
+            <source-peers ref="source"/>
             <hook v-for="peer in activePeers" :key="peer.id"
                 :receiver="peer.peer" on="stream" @stream="refresh"/>
         </span>
@@ -259,7 +223,7 @@ Vue.component('p2p.source-video', {
         refresh() { this.$forceUpdate(); }
     },
     components: {
-        hook: EventHook
+        SourcePeers, hook: EventHook
     }
 });
 
@@ -321,34 +285,6 @@ Vue.component('p2p.file-object', {
         })
     }
 });
-/*
-const {SyncPad, FirepadShare} = require('../addons/syncpad');
-
-Vue.component('syncpad', {
-    data: () => ({ slot: undefined }),
-    template: `<codemirror ref="editor"/>`,
-    mounted() {
-        this.$watch('slot', slot => {
-            if (this.pad) this.pad.destroy();
-            this.pad = new SyncPad(this.$refs.editor.cm, slot);
-        });
-    }
-});*/
-
-// - obsolete; superseded by `syncpad`
-/*
-Vue.component('automerge-codemirror', {
-    data: () => ({ slot: undefined }),
-    template: `<codemirror ref="editor"/>`,
-    mounted() {
-        this.$watch('slot', slot => {
-            const {AutomergeCodeMirror} = require('automerge-codemirror');
-            if (this.pad) this.pad.destroy();
-            this.pad = new AutomergeCodeMirror(this.$refs.editor.cm, slot, {debounce: {wait: 0}});
-        });
-    }
-});
-*/
 
 Vue.component('drawer', {
     data: () => ({ open: false }),

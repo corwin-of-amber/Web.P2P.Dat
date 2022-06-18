@@ -1,12 +1,12 @@
 <template>
     <div class="list-of-peers ui-font-default">
-        <div class="list-title" v-if="peers.length">
+        <div class="list-title" v-if="title == 'always' || title && peers.length">
             <span>Peers</span>
         </div>
         <plain-list :items="peers" v-slot="{item}">
             {{item.id}}
         </plain-list>
-        <p2p.source-peers ref="source"/>
+        <source-peers ref="source"/>
     </div>
 </template>
 
@@ -25,13 +25,15 @@ div.list-title {
 </style>
 
 <script>
+import SourcePeers from './source/peers.vue';
 import PlainList from './plain-list.vue';
 
 export default {
+    props: ['title'],
     data: () => ({ peers: [] }),
     mounted() {
         this.peers = this.$refs.source.peers;
     },
-    components: { PlainList }
+    components: { SourcePeers, PlainList }
 }
 </script>

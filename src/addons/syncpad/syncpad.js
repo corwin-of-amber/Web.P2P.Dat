@@ -210,10 +210,12 @@ class SyncPad {
     }
 
     _initializeEditor(editor, opts) {
-        switch (editor.constructor.name) {
+        switch (opts.type ?? editor.constructor.name) {
         case 'CodeMirror':  // v5
+        case 'CodeMirror5':
             editor.swapDoc(new CodeMirror.Doc('', opts.mode ?? editor.getOption('mode'))); break;
         case 'EditorView':  // v6
+        case 'CodeMirror6':
             editor.setState(EditorState.create({extensions: opts.extensions})); break;
         }
         return editor;

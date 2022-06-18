@@ -8,7 +8,7 @@
     <body>
         <div id="app">
             <button-join ref="join" :channel="channel"></button-join>
-            <list-of-peers ref="peers"></list-of-peers>
+            <list-of-peers ref="peers" :title="true"></list-of-peers>
             <documents-raw ref="documents" :editable="ready"
                 @doc:action="$emit('doc:action', $event)"></documents-raw>
             <p2p.list-of-feeds ref="feeds"></p2p.list-of-feeds>

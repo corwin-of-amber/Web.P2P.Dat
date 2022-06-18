@@ -26,6 +26,7 @@ const DEFAULT_OPTIONS = {
         appName: 'dat-p2p-crowd',
         servers: {
             hub: 'wss://pwr.zapto.org',              // my server :P
+            //hub: 'wss://pl.cs.technion.ac.il/wh'
             //hub: 'wss://amberhubws.herokuapp.com', // my server :P
             ice: [
                 {urls: ['stun:stun.l.google.com:19302',
