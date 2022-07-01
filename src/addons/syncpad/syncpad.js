@@ -2,8 +2,6 @@ import assert from 'assert';
 import _ from 'lodash';
 import through2 from 'through2';
 import automerge from 'automerge';
-import CodeMirror from 'codemirror';  // need both cm5 and cm6 until the former becomes obsolete
-import { EditorState } from '@codemirror/state';
 import { FirepadCore, TextOperation } from 'firepad-core';
 
 import { FirepadTreeMerge } from './firepad-conflow';
@@ -210,13 +208,19 @@ class SyncPad {
     }
 
     _initializeEditor(editor, opts) {
+        // note: lazily `require()` only the version of CodeMirror that is used.
+        // CodeMirror cannot be imported when running in Node.js, as it uses `navigator`.
         switch (opts.type ?? editor.constructor.name) {
         case 'CodeMirror':  // v5
         case 'CodeMirror5':
-            editor.swapDoc(new CodeMirror.Doc('', opts.mode ?? editor.getOption('mode'))); break;
+            let CodeMirror = require('codemirror');
+            editor.swapDoc(new CodeMirror.Doc('', opts.mode ?? editor.getOption('mode')));
+            break;
         case 'EditorView':  // v6
         case 'CodeMirror6':
-            editor.setState(EditorState.create({extensions: opts.extensions})); break;
+            let { EditorState } = require('@codemirror/state');
+            editor.setState(EditorState.create({extensions: opts.extensions}));
+            break;
         }
         return editor;
     }

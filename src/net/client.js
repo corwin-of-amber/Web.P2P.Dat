@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import randomBytes from 'randombytes';
 import pump from 'pump';
 import mergeOptions from 'merge-options';
+import through2 from 'through2';
 
 import WebRTCSwarm from '@corwin.amber/webrtc-swarm';
 import signalhubws from 'signalhubws';
@@ -16,18 +17,18 @@ import { FeedCrowd } from './crowd';
 
 
 
-/* This can work in node as well, but switching to discovery-swarm-web would require a tiny patch */
+/* Node compatibility layer: websockets and webrtc */
 const node_require = require, /* bypass browserify */
       node_ws = (typeof WebSocket === 'undefined') ? node_require('websocket').w3cwebsocket : undefined,
       wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('@koush/wrtc') : undefined;
 
 
 const DEFAULT_OPTIONS = {
-        appName: 'dat-p2p-crowd',
+        appName: 'ronin-p2p',
         servers: {
-            hub: 'wss://pwr.zapto.org',              // my server :P
-            //hub: 'wss://pl.cs.technion.ac.il/wh'
-            //hub: 'wss://amberhubws.herokuapp.com', // my server :P
+            hub: 'wss://pl.cs.technion.ac.il/wh',      // my server :P
+            //hub: 'wss://pwr.zapto.org',              // my server :P
+            //hub: 'wss://amberhubws.herokuapp.com',   // my server :P
             ice: [
                 {urls: ['stun:stun.l.google.com:19302',
                         'stun:global.stun.twilio.com:3478']},
@@ -44,8 +45,8 @@ const LOCAL_OPTIONS = {
             hub: 'ws://localhost:3300',
             ice: [
                 {urls: ['turn:localhost:3478'],
-                username: 'power',
-                credential: 'to-the-people'}
+                 username: 'power',
+                 credential: 'to-the-people'}
             ]
     }};
 
@@ -74,6 +75,10 @@ class SwarmClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             this.hub =
                 signalhubws(this.opts.appName, [this.opts.servers.hub], node_ws);
+
+            this.hub.subscribe('*').pipe(through2.obj(data => {
+                if (data.motd) this._configureFromMotd(data.motd);
+            }));
 
             this.hub.once('open', () => {
                 this.opened = true;
@@ -173,6 +178,13 @@ class SwarmClient extends EventEmitter {
         if (this._reconnectHandler) {
             this.removeListener('disconnect', this._reconnectHandler);
             this._reconnectHandler = null;
+        }
+    }
+
+    _configureFromMotd(motd) {
+        let ice = this.opts.servers?.ice;
+        if (motd.ice && ice && !ice.some(e => JSON.stringify(e) == JSON.stringify(motd.ice))) {
+            ice.push(motd.ice);
         }
     }
 }
@@ -342,4 +354,4 @@ class FeedClient extends SwarmClient {
 
 
 
-module.exports = {SwarmClient, FeedClient};
+export { SwarmClient, FeedClient, DEFAULT_OPTIONS, LOCAL_OPTIONS }
