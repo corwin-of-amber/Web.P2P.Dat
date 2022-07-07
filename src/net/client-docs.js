@@ -23,7 +23,7 @@ class DocumentClient extends FeedClient {
         this.sync = new DocSync();
 
         this.sync.on('data', d => {
-            this.docFeeds.transient.extension('crdt', Buffer.from(d));
+            this.docFeeds.transient?.extension('crdt', Buffer.from(d));
         });
 
         this.crowd.on('feed:extension', (feed, {name, msg, peer}) => {

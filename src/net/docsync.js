@@ -1,4 +1,7 @@
+import fs from 'fs';
+import path from 'path';
 import { EventEmitter } from 'events';
+import _ from 'lodash';
 import mergeOptions from 'merge-options';
 import cuid from 'cuid';
 import automerge from 'automerge';
@@ -38,6 +41,10 @@ class DocSync extends EventEmitter {
         return new DocumentSlot(this.docs, docName);
     }
 
+    ls() {
+        return [...this.docs.docs.keys()];
+    }
+
     has(docName) {
         return !!this.docs.getDoc(docName);
     }
@@ -62,7 +69,6 @@ class DocSync extends EventEmitter {
     snapshot(docName, filename) {
         var saved = automerge.save(this.path(docName).get());
         if (filename) {
-            var fs = (0 || require)('fs');
             filename = filename.replace(/^file:\/\//, '');
             fs.writeFileSync(filename, saved);
         }
@@ -70,18 +76,15 @@ class DocSync extends EventEmitter {
     }
 
     restore(docName, snapshot) {
-        let mo = snapshot.match(/^file:\/\/(.*)$/);
-        if (mo) {
-            var fs = (0 || require)('fs');
-            snapshot = fs.readFileSync(mo[1]);
+        if (typeof snapshot === 'string') {
+            snapshot = fs.readFileSync(snapshot);
         }
         var doc = automerge.load(snapshot);
-        this.path(docName).set(doc);
+        this.create(docName).set(doc);
         return doc;
     }
 
     _onSetDoc(docId, doc) {
-        //console.log('document modified:', docId, doc);
         this.emit('change', {id: docId, doc});
     }
 }
@@ -133,4 +136,44 @@ s1.create('d1');
 s1.change('d1', d => d.cards = []);
 */
 
-export { DocSync }
+class DocSyncStorageDirectory {
+    constructor(root) {
+        this.root = root;
+    }
+
+    store(docsync) {
+        fs.mkdirSync(this.root, {recursive: true});
+        for (let docName of docsync.ls()) {
+            docsync.snapshot(docName, path.join(this.root, docName));
+        }
+    }
+
+    restore(docsync) {
+        try {
+            var ls = fs.readdirSync(this.root);
+        }
+        catch { return; /* directory does not exist */ }
+
+        for (let docName of ls) {
+            if (!docName.startsWith('.')) {
+                try {
+                    docsync.restore(docName, path.join(this.root, docName));
+                }
+                catch (e) {
+                    console.warn(`[docsync] failed to restore document '${docName}';`, e);
+                }
+            }
+        }
+    }
+
+    autosave(docsync, opts = {immediate: false, wait: 5000}) {
+        if (opts.immediate) this.store(docsync);
+        docsync.on('change', _.throttle(() => {
+            console.log('- autosave -');
+            this.store(docsync);
+        }, opts.wait ?? 5000));
+    }
+}
+
+
+export { DocSync, DocSyncStorageDirectory }

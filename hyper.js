@@ -4,9 +4,11 @@ if (typeof window !== 'undefined') {
     Object.assign(window, {Buffer, process});
 }
 
+import path from 'path';
 import { FeedClient, LOCAL_OPTIONS } from './src/net/client';
 import { FeedCrowdStorageDirectory } from './src/net/crowd';
 import { DocumentClient } from './src/net/client-docs';
+import { DocSyncStorageDirectory } from './src/net/docsync';
 import { App } from './src/ui/ui';
 
 import 'codemirror/lib/codemirror.css';
@@ -91,6 +93,12 @@ function main_syncdoc_headless(opts) {
     c1.join(opts.channel || 'doc2');
 
     c1.on('change', console.log);
+
+    if (opts.persist) {
+        let dssd = new DocSyncStorageDirectory(path.join(opts.persist, 'docs'));
+        dssd.restore(c1.sync);
+        dssd.autosave(c1.sync);
+    }
 }
 
 
