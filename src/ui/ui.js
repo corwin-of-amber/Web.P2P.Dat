@@ -1,5 +1,4 @@
 import Vue from 'vue/dist/vue';
-import moment from 'moment';
 
 import * as bidiText from './bidi-text';
 
@@ -78,7 +77,8 @@ Vue.component('p2p.list-of-messages', {
             `,
             computed: {
                 time() {
-                    return moment(this.message.timestamp).format('HH:mm');
+                    let dtf = new Intl.DateTimeFormat('en', {hour12: false, hour: '2-digit', minute: '2-digit'});
+                    return dtf.format(this.message.timestamp);
                 },
                 dir() {
                     return bidiText.detectTextDir(this.message.message || '');
