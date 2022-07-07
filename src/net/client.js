@@ -86,6 +86,11 @@ class SwarmClient extends EventEmitter {
                 resolve(); this.emit('init');
             });
 
+            this.hub.on('error', (err) => { 
+                console.warn('[signalhub connection]', err.url, err.event);
+                if (!this.opened) this.emit('disconnect');
+            });
+
             console.log(`me: %c${this.id.toString('hex')}`, 'color: green;');
             this._registerReconnect();
         });
@@ -117,7 +122,14 @@ class SwarmClient extends EventEmitter {
     }
 
     async reconnect() {
-        var timestamp = new Date().toLocaleTimeString();
+        var now = new Date();
+        if (this._lastReconnect && now - this._lastReconnect < 1000) {
+            setTimeout(() => !this.opened && this.reconnect(), 5000);
+            return;
+        }
+        else this._lastReconnect = now;
+
+        var timestamp = now.toLocaleTimeString();
         console.log(`%c- reconnect - %c${timestamp}`, 'color: red;', 'color: #ccc');
         this.close();
         

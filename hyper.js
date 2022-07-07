@@ -4,10 +4,10 @@ if (typeof window !== 'undefined') {
     Object.assign(window, {Buffer, process});
 }
 
-const {FeedClient} = require('./src/net/client'),
-      {FeedCrowdStorageDirectory} = require('./src/net/crowd'),
-      {DocumentClient} = require('./src/net/client-docs'),
-      {App} = require('./src/ui/ui');
+import { FeedClient, LOCAL_OPTIONS } from './src/net/client';
+import { FeedCrowdStorageDirectory } from './src/net/crowd';
+import { DocumentClient } from './src/net/client-docs';
+import { App } from './src/ui/ui';
 
 import 'codemirror/lib/codemirror.css';
 import './src/ui/app.css';
@@ -87,7 +87,7 @@ function main_syncdoc(opts = parseParams()) {
 }
 
 function main_syncdoc_headless(opts) {
-    var c1 = new DocumentClient();
+    var c1 = new DocumentClient(opts.server === 'local' ? LOCAL_OPTIONS : undefined);
     c1.join(opts.channel || 'doc2');
 
     c1.on('change', console.log);
