@@ -1,0 +1,9 @@
+subsidiaries
+build
+dist
+public
+data
+tmp
+tests
+*.app
+*.tgz

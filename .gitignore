@@ -12,4 +12,5 @@ node_modules/
 .vercel
 /img/*.icns
 /tmp
+*.tgz
 _npmlink

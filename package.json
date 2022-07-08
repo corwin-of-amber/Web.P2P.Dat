@@ -1,10 +1,10 @@
 {
   "name": "ronin-p2p",
   "version": "0.1.0",
-  "description": "",
-  "main": "build/kremlin/index.html",
-  "author": "",
-  "license": "ISC",
+  "description": "A versatile P2P over WebRTC connection library",
+  "main": "index.js",
+  "author": "Corwin of Amber",
+  "license": "MIT",
   "browser": {
     "mass-confusion": true,
     "jsdom": {}
