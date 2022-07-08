@@ -53,6 +53,14 @@ class SyncPad {
     get active() { return this._active; }
 
     /**
+     * Creates a new document at the slotted location.
+     * @param {string} withText initial text value (default: '')
+     */
+    new(withText) {
+        this.slot.set(FirepadShare.fromText(withText));
+    }
+
+    /**
      * Creates a text write stream, where writes are appended to the
      * document.
      * @param {boolean} autodestruct destroy the pad when the stream ends
@@ -330,4 +338,4 @@ function debounceQueue(func, wait, options) {
 
 
 
-module.exports = {SyncPad, FirepadShare};
+export { SyncPad, FirepadShare }
