@@ -1,6 +1,7 @@
 import assert from 'assert';
 import _ from 'lodash';
 import through2 from 'through2';
+import uuid from 'uuid';
 import automerge from 'automerge';
 import { FirepadCore, TextOperation } from 'firepad-core';
 
@@ -30,6 +31,9 @@ class SyncPad {
 
         this.firepad = new FirepadCore(this.editor, opts);
 
+        this.user = opts.id ?? uuid.v4().slice(0, 8);
+        this.firepad.serverAdapter.setUserId(this.user);
+
         this.tm = undefined;
         this._outbox = undefined;
         this._active = true;
@@ -46,6 +50,7 @@ class SyncPad {
         if (this.fpHandler)         this.firepad.off('data', this.fpHandler);
         if (this.amHandler)         this.amHandler.unregister();
         if (this._debouncedPatch)   this._debouncedPatch.cancel();
+        this.firepad.onBlur();
         this.firepad.dispose();
     }
 
@@ -81,15 +86,15 @@ class SyncPad {
     _formLink() {
         this._park = undefined;
         
-        const slotFor = (obj, prop) => {
+        const objIdFor = (obj, prop) => {
             obj = _.isObject(obj) ? obj[prop] : false;
-            if (!obj) throw new Error(`(SyncPad) expected property '${prop}' is missing`);
-            return this.slot.object(obj);
+            if (!obj) throw new Error(`[SyncPad] expected property '${prop}' is missing`);
+            return automerge.Frontend.getObjectId(obj);
         };
 
         const obj = this.slot.get(),
-              subslots = {operations: slotFor(obj, 'operations'),
-                          cursors:    slotFor(obj, 'cursors')};
+              objIds = {operations: objIdFor(obj, 'operations'),
+                        cursors:    objIdFor(obj, 'cursors')};
 
         // Firepad -> Automerge
         this.fpHandler = (data) => {
@@ -106,25 +111,35 @@ class SyncPad {
                     this._maybeAccept();
                 });
             }
+            if (data.cursor) {
+                process.nextTick(() =>
+                    this.slot.change(o => o.cursors[this.user] = data.cursor,
+                                     newRev => this.amHandler.skipFwd(newRev)));
+            }
         };
         this.firepad.on('data', this.fpHandler);
 
-        // Automerge -> Firepad
-        this._populate(obj.operations);
+        this.firepad.serverAdapter.on('retire', u =>
+            this.slot.change(o => delete o.cursors[u]));
 
-        this.amHandler = registerHandlerObj(subslots.operations, 
+        // - try to be nice and destroy cursor before navigating away
+        window.addEventListener('beforeunload', () => this.firepad.onBlur());
+
+        // Automerge -> Firepad
+        this._populate(obj.operations, obj.cursors);
+
+        this.amHandler = registerHandlerObjs(this.slot, Object.values(objIds),
             (newVal, oldVal, newRev, oldRev, changes) => {
                 var diff = [].concat(...changes.map(co => co.ops));
                 debouncedPatch(newVal, diff);
-                //debouncedPatch.flush();
             });
 
         const debouncedPatch = debounceQueue((values, diff) => {
             //let userId = this.firepad.serverAdapter.userId_;
-            let elemIds = automerge.Frontend.getElementIds(values),
-                lastIndex = -1;
+            let elemIds = undefined, lastIndex = -1;
             for (let entry of diff) {
-                if (entry.action === 'set') {
+                if (entry.obj === objIds.operations && entry.action === 'set') {
+                    elemIds ??= automerge.Frontend.getElementIds(values.operations); /* lazy */
                     var index = patchIndexOf(elemIds, entry);
                     assert(index > lastIndex); /* one can only hope that within a single patch, changes arrive in ascending order... */
                     if (entry.insert) {
@@ -143,6 +158,10 @@ class SyncPad {
                         this.tm.rebased(index, operation)
                     }
                     lastIndex = index;
+                }
+                else if (entry.obj === objIds.cursors && entry.action === 'makeMap') {
+                    let cursor = values.cursors[entry.key];
+                    if (cursor) this.firepad.data({cursor});
                 }
             }
         }, 50, {maxWait: 500, afterFlush: () => {
@@ -169,7 +188,6 @@ class SyncPad {
     _push(operation, accept) {
         var reified = this.tm.newOperation(operation);
         reified.v[0].a = this.firepad.serverAdapter.userId_;
-        //console.log('push', JSON.stringify(reified.v));
         this.slot.change(o => o.operations.push(JSON.stringify(reified.v)),
                          newRev => {
                              this.amHandler.skipFwd(newRev); 
@@ -183,7 +201,8 @@ class SyncPad {
     _trace(rev, msg='revision') {
         var userId = this.firepad.serverAdapter.userId_;
         console.warn(msg, userId);
-        for (let o of rev.firepad.operations) {
+        /* @note path `syncpad` is hard-coded rather than being taken from `slot` */
+        for (let o of rev.syncpad?.operations ?? []) {
             o = o && JSON.parse(o)[0]; o = o && {o:o.o, a:o.a};
             console.log(`${JSON.stringify(o)}`);
         }
@@ -233,13 +252,16 @@ class SyncPad {
         return editor;
     }
 
-    _populate(operations) {
+    _populate(operations, cursors) {
         assert(!this.tm);
         assert(this.editor.state?.doc ? this.editor.state.doc.length === 0
                                       : this.editor.getValue() === '');
 
         this.tm = FirepadTreeMerge.from(this._withIds(operations));
         this.firepad.data({operation: this.tm.recompose()});
+
+        for (let cursor of Object.values(cursors))
+            this.firepad.data({cursor});
     }
 }
 
@@ -290,12 +312,11 @@ function registerHandlerWithChanges(docSlot, handler) {
     };
 }
 
-function registerHandlerObj(slot, handler) {
-    var objectId = automerge.getObjectId(slot.get());
+function registerHandlerObjs(slot, objectIds, handler) {
     return registerHandlerWithChanges(slot.docSlot, 
         (newDoc, oldDoc, changes) => {
             changes = changes.filter(x => x.ops &&
-                                     x.ops.some(o => o.obj === objectId));
+                                     x.ops.some(o => objectIds.includes(o.obj)));
             if (changes.length > 0) {
                 handler(slot.getFrom(newDoc), slot.getFrom(oldDoc), newDoc, oldDoc, changes);
             }
