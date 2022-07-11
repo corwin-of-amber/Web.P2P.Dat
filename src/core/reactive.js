@@ -1,3 +1,4 @@
+import { EventEmitter } from 'events';
 
 
 /**
@@ -8,15 +9,19 @@ class ObservableSet extends Set {
     add(key) {
         if (!this.has(key)) {
             super.add(key);
-            this.l.push(key);
+            this.l.push(key); this._poke();
         }
     }
     remove(key) {
         super.remove(key);
         var i = this.l.indexOf(key);
-        if (i >= 0) this.l.splice(i, 1);
+        if (i >= 0) { this.l.splice(i, 1); this._poke(); }
     }
-    clear() { super.clear(); this.l.splice(0); }
+    clear() { super.clear(); this.l.splice(0); this._poke(); }
+
+    ev = new EventEmitter();
+    observe(h) { this.ev.on('change', h); }
+    _poke() { this.ev.emit('change', this); }
 }
 
 /**
