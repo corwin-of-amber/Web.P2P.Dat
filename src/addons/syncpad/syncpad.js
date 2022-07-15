@@ -6,6 +6,7 @@ import automerge from 'automerge';
 import { FirepadCore, TextOperation } from 'firepad-core';
 
 import { FirepadTreeMerge } from './firepad-conflow';
+import './syncpad.css';
 
 
 
@@ -141,6 +142,8 @@ class SyncPad {
                 if (entry.obj === objIds.operations && entry.action === 'set') {
                     elemIds ??= automerge.Frontend.getElementIds(values.operations); /* lazy */
                     var index = patchIndexOf(elemIds, entry);
+                    if (!(index > lastIndex))  /* the assertion below sometimes fails and I was unable to figure out why */
+                        console.warn('patchIndexOf', elemIds, entry, index);
                     assert(index > lastIndex); /* one can only hope that within a single patch, changes arrive in ascending order... */
                     if (entry.insert) {
                         //console.log(entry.index, entry.value, `(${userId})`);
@@ -170,6 +173,9 @@ class SyncPad {
         } });
 
         this._debouncedPatch = debouncedPatch;
+
+        // Restore cursor and scroll if needed
+        if (this._restoreUI) { this._restoreUI(); this._restoreUI = undefined; }
     }
 
     static _operationsWithIds(values) {
@@ -241,15 +247,26 @@ class SyncPad {
         case 'CodeMirror':  // v5
         case 'CodeMirror5':
             let CodeMirror = require('codemirror');
+            if (opts.pin) this._cm5pin(editor);
             editor.swapDoc(new CodeMirror.Doc('', opts.mode ?? editor.getOption('mode')));
             break;
         case 'EditorView':  // v6
         case 'CodeMirror6':
             let { EditorState } = require('@codemirror/state');
+            if (opts.pin) console.warn('[SyncPad] `opts.pin` not implemented for cm6');
             editor.setState(EditorState.create({extensions: opts.extensions}));
             break;
         }
         return editor;
+    }
+
+    _cm5pin(editor) {
+        /** store document state for later retrieval, when the edited document is identical */
+        let doc = editor.getDoc(), si = editor.getScrollInfo(), pos = editor.getCursor();
+        this._restoreUI = () => {
+            assert(editor.getValue() == doc.getValue());
+            editor.swapDoc(doc); editor.setCursor(pos); editor.scrollTo(si.left, si.top);
+        };
     }
 
     _populate(operations, cursors) {

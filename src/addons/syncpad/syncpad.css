@@ -1,0 +1,18 @@
+
+/* pin-heads for other-client cursors */
+
+span.other-client {
+    position: relative;
+}
+
+span.other-client::before {
+    content: " ";
+    position: absolute;
+    bottom: calc(100% - 2px);
+    left: -1px;
+    transform: translateX(-50%);
+    border: 2px solid var(--color);
+    border-radius: 99px;
+    height: 3px;
+    width: 3px;
+}
