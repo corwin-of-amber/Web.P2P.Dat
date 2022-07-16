@@ -148,22 +148,26 @@ class SwarmClient extends EventEmitter {
     getPeer(id, channel=undefined) {
         if (id.id) id = id.id;
 
-        var channels = channel ? [this.channels.get(channel)].filter(x => x)
-                               : this.channels.values()
-
-        for (let chan of channels) {
+        for (let chan of this._channelsBy(channel)) {
             var p = chan.peers.get(id);
             if (p) return {id, ...p};
         }
     }
 
     getPeers(channel=undefined) {
-        var channels = channel ? [this.channels.get(channel)].filter(x => x)
-                               : [...this.channels.values()]
-
         return [].concat(...
-            channels.map(chan => [...chan.peers.entries()]
+            this._channelsBy(channel).map(chan => [...chan.peers.entries()]
                 .map(([id, p]) => ({id, ...p}))));
+    }
+
+    getSuspended(channel=undefined) {
+        return [].concat(...
+            this._channelsBy(channel).map(chan => [...(chan.swarm?.suspended ?? [])]));
+    }
+
+    _channelsBy(name=undefined) {
+        return name ? [this.channels.get(name)].filter(x => x)
+                    : [...this.channels.values()];
     }
 
     _channelOptions() {
