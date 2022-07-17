@@ -42,7 +42,7 @@
   },
   "chromium-args": "--disable-background-timer-throttling",
   "scripts": {
-    "build": "kremlin --prod index.html",
+    "build": "kremlin --prod index.html pad.html",
     "build:cli": "kremlin -o build/cli --node hyper.js",
     "dist": "npm run -s build && mkdir -p public && cp -r img build/kremlin/{index.html,*.css,include.js,bundle.js} public/"
   },
