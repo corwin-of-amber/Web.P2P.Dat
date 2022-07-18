@@ -98,4 +98,4 @@ class VideoIncoming {
 }
 
 
-module.exports = {VideoOutgoing, VideoIncoming};
+export { VideoOutgoing, VideoIncoming }

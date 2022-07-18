@@ -194,82 +194,6 @@ Vue.component('p2p.message-input-box', {
 });
 
 
-const {VideoIncoming} = require('../addons/video');
-
-Vue.component('p2p.source-video', {
-    props: ['videoincoming'],
-    data: () => ({ streams: [], activePeers: [] }),
-    template: `
-        <span>
-            <source-peers ref="source"/>
-            <hook v-for="peer in activePeers" :key="peer.id"
-                :receiver="peer.peer" on="stream" @stream="refresh"/>
-        </span>
-    `,
-    mounted() {
-        this.$watch('_streams', v => this._set(v || []), {immediate: true});
-        this.activePeers = this.$refs.source.peers;
-    },
-    computed: {
-        _streams() {
-            if (this.videoincoming) {
-                var client = this.$refs.source.self;
-                return client && this.videoincoming.receive(client);
-            }
-        }
-    },
-    methods: {
-        _set(streams) { this.streams.splice(0, Infinity, ...streams); },
-        refresh() { this.$forceUpdate(); }
-    },
-    components: {
-        SourcePeers, hook: EventHook
-    }
-});
-
-
-Vue.component('video-widget', {
-    data: () => ({ streams: [] }),
-    template: `
-        <div class="video-widget">
-            <template v-for="stream in streams">
-                <video-stream-view :stream="stream"/>
-            </template>
-        </div>
-    `,
-    components: {
-        'video-stream-view': {
-            props: ['stream'],
-            template: `
-                <div> -- {{stream}} --</div>
-            `,
-            mounted() {
-                this.$watch('stream', (stream) => {
-                    this.$el.innerHTML = '';
-                    if (stream instanceof MediaStream) {
-                        this.$el.append(VideoIncoming.createVideoElement(stream));
-                    }
-                }, {immediate: true});
-            }
-        }
-    }
-
-});
-
-Vue.component('p2p.video-view', {
-    props: ['videoincoming'],
-    template: `
-        <div class="p2p-video-view">
-            <p2p.source-video ref="source" :videoincoming="videoincoming"/>
-            <video-widget ref="view"/>
-        </div>
-    `,
-    mounted() {
-        this.$refs.view.streams = this.$refs.source.streams;
-    }
-});
-
-
 const {FileShare} = require('../addons/fs-sync');
 
 Vue.component('p2p.file-object', {
@@ -323,13 +247,14 @@ Vue.component('document-preview', {
             switch (vm.kind) {
                 case 'object/FirepadShare':
                 //case 'text/automerge':
-                //    this.showText(slot, vm.kind);  return true;
+                    this.showText(slot, vm.kind);  return true;
                 case 'file':
                     this.showFile(vm.coerced());   return true;
             }
             return false;
         }        
-    }
+    },
+    components: { syncpad }
 });
 
 Vue.component('preview-pane', {

@@ -10,7 +10,7 @@
             <button @click="select()">File</button>
         </template>
         <template v-else-if="kind === 'object/VideoIncoming'">
-            <p2p.video-view :videoincoming="coerced()"/>
+            <video-view :videoincoming="coerced()"/>
         </template>
         <template v-else-if="kind === 'object'">
             <span class="record--key-value" v-for="(v,k) in object" :key="k"
@@ -29,6 +29,10 @@
 import automerge from 'automerge';
 
 import RecordText from './record-text.vue';
+import { FirepadShare } from '../../../addons/syncpad';
+import { FileShare } from '../../../addons/fs-sync';
+import { VideoIncoming } from '../../../addons/video';
+import VideoView from '../video/video-view.vue';
 
 
 export default {
@@ -75,7 +79,7 @@ export default {
             }
         }
     },
-    components: { RecordText }
+    components: { RecordText, VideoView }
 }
 </script>
 
