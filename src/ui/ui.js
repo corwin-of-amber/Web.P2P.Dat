@@ -5,16 +5,15 @@ import * as bidiText from './bidi-text';
 import 'vue-context/dist/css/vue-context.css';
 import './menu.css';
 
-import EventHook from './components/event-hook.vue';
 import PlainList from './components/plain-list.vue';
+import PreviewPane from './components/preview-pane.vue';
 import SourceStatus from './components/source/status.vue';
-import SourcePeers from './components/source/peers.vue';
 import ListOfPeers from './components/list-of-peers.vue';
+import ListOfFeeds from './components/list-of-feeds.vue';
 import ButtonJoin from './components/button-join.vue';
 import DocumentsRaw from './components/treedoc/documents-raw.vue';
 import syncpad from './components/syncpad/syncpad.vue';
 import ListOfDocuments from './components/syncpad/list-of-documents.vue';
-
 
 
 Vue.component('p2p.source-messages', {
@@ -88,80 +87,6 @@ Vue.component('p2p.list-of-messages', {
     }
 });
 
-const {keyHex, keyHexShort} = require('../net/crowd');
-
-Vue.component('p2p.source-feeds', {
-    data: () => ({ remote: [], stats: {} }),
-    template: `
-        <span>
-            <template v-for="feed in remote">
-                <hook :receiver="feed" on="download" @download="onDownload(feed)"/>
-            </template>
-        </span>
-    `,
-    mounted() {
-        this.$root.$watch('clientState', (state) => {
-            this.unregister(); if (state) this.register(state.client);
-        }, {immediate: true});
-    },
-    methods: {
-        register(client) {
-            this.remote = client.crowd.remoteFeeds;
-        },
-        unregister() {
-        },
-        onDownload(feed) {
-            var stats = feed.stats;
-            Vue.set(this.stats, keyHex(feed), stats);
-        }
-    },
-    components: {
-        hook: EventHook
-    }
-});
-
-Vue.component('p2p.list-of-feeds', {
-    data: () => ({ feeds: [], stats: {} }),
-    template: `
-        <div class="p2p-list-of-feeds">
-            <p2p.source-feeds ref="source"/>
-            <plain-list :items="feeds" v-slot="{item}">
-                <span>{{keyHexShort(item)}} 
-                    <dl-progress :value="downloadProgress(item, stats[keyHex(item)])"/></span>
-            </plain-list>
-        </div>
-    `,
-    mounted() {
-        this.$refs.source.$watch('remote', (remote) => {
-            this.feeds = remote;
-        }, {immediate: true});
-        this.stats = this.$refs.source.stats;
-    },
-    methods: {
-        keyHex(feed) { return keyHex(feed); },
-        keyHexShort(feed) { return keyHexShort(feed); },
-        downloadProgress(feed, stats) {
-            return stats && {total: feed.length,
-                downloaded: stats.totals.downloadedBlocks,
-                bytes: stats.totals.downloadedBytes
-            };
-        }
-    },
-    components: {
-        PlainList,
-        'dl-progress': {
-            props: ["value"],
-            template: `
-                <span>
-                    <template v-if="value">
-                        {{value.downloaded}}/{{value.total}} ({{value.bytes}})
-                    </template>
-                </span>
-            `
-        }
-    }
-});
-
 
 Vue.component('p2p.message-input-box', {
     data: () => ({ message: '' }),
@@ -210,91 +135,6 @@ Vue.component('p2p.file-object', {
     }
 });
 
-Vue.component('drawer', {
-    data: () => ({ open: false }),
-    template: `
-        <div class="drawer" :class="open ? 'open' : 'closed'">
-            <button @click="toggle()" class="toggle">×</button>
-            <slot/>
-        </div>`,
-    methods: {
-        toggle() { this.open = !this.open; }
-    }
-});
-
-Vue.component('document-preview', {
-    data: () => ({ kind: '', object: undefined }),
-    template: `
-        <div>
-            <component :is="kind" ref="object"></component>
-        </div>
-    `,
-    methods: {
-        showText(slot, kind) {
-            switch (kind) {
-                case 'object/FirepadShare': this.kind = 'syncpad'; break;
-                //case 'text/automerge': this.kind = 'automerge-codemirror'; break;
-                default:
-                    throw new Error(`unknown text document, kind '${kind}'`);
-            }
-            process.nextTick(() => this.$refs.object.slot = slot);
-        },
-        showFile(fileshare) {
-            this.kind = 'p2p.file-object';
-            process.nextTick(() => this.$refs.object.fileshare = fileshare);
-        },
-        showObject(vm, slot) {
-            switch (vm.kind) {
-                case 'object/FirepadShare':
-                //case 'text/automerge':
-                    this.showText(slot, vm.kind);  return true;
-                case 'file':
-                    this.showFile(vm.coerced());   return true;
-            }
-            return false;
-        }        
-    },
-    components: { syncpad }
-});
-
-Vue.component('preview-pane', {
-    template: `
-        <drawer ref="drawer">
-            <document-preview ref="preview"></document-preview>
-        </drawer>
-    `,
-    methods: {
-        select(ev) {
-            var client = this.$root.clientState.client;
-            if (client && client.sync) {
-                var slot = client.sync.object(ev.docId, ev.target.object);
-                this.zoomObject(ev.target, slot);
-            }
-        },
-
-        showObject(vm, slot) {
-            if (this.$refs.preview.showObject(vm, slot))
-                this.$refs.drawer.open = true;
-        },
-
-        zoomObject(vm, slot) {
-            this.showObject(vm, slot);
-            if (this.watch) this.watch.destroy();
-            this.watch = new Watch(vm, 'object', () => this.showObject(vm, slot));
-        }
-    }
-});
-
-
-class Watch {
-    constructor(vue, prop, handler) {
-        this._registered = {unwatch: vue.$watch(prop, handler)};
-    }
-    destroy() {
-        this._registered.unwatch();
-    }
-}
-
 
 class App {
     constructor(dom, opts={}) {
@@ -306,8 +146,8 @@ class App {
             computed: {
                 ready() { return this.clientState && this.$refs.join.ready; }
             },
-            components: { SourceStatus, ButtonJoin, ListOfPeers, DocumentsRaw,
-                syncpad, ListOfDocuments }
+            components: { SourceStatus, ButtonJoin, ListOfPeers, ListOfFeeds,
+                DocumentsRaw, ListOfDocuments, PreviewPane, syncpad }
         });
         this.vue.$on('doc:action', ev => {
             switch (ev.type) {

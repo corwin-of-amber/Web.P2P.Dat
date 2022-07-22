@@ -12,7 +12,7 @@
             <list-of-peers ref="peers" :title="true"></list-of-peers>
             <documents-raw ref="documents" :editable="ready"
                 @doc:action="$emit('doc:action', $event)"></documents-raw>
-            <p2p.list-of-feeds ref="feeds"></p2p.list-of-feeds>
+            <list-of-feeds ref="feeds"></list-of-feeds>
             <preview-pane ref="preview"></document-preview>
         </div>
     </body>
