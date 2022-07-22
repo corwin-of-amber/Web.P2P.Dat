@@ -109,11 +109,14 @@ function main_syncdoc_headless(opts) {
 
 
 async function main_syncpad(opts = parseParams()) {
+    document.body.classList.add('syncpad-ide');
+
     var c1 = new DocumentClient();
 
     var app = App.start({ui: 'pad', channel: opts.channel || opts.pad || 'pad/lobby'}).attach(c1);
 
     await c1.init();
+
 
     app.vue.$on('open', (ev) => {
         app.vue.$refs.pad.slot = ev.slot;
@@ -129,16 +132,11 @@ async function main_syncpad(opts = parseParams()) {
     Object.assign(window, {c1});
 }
 
-function redir_syncpad(opts) {
-    /* This is temporary (I think?) */
-    window.location = 'pad.html' + window.location.search;
-}
-
 function main() {
     var sp = new URLSearchParams(window.location.search),
         opts = parseParams(sp);
     if (sp.has('chat'))     main_chat();  /* defunct */
-    else if (sp.has('pad')) redir_syncpad(opts);
+    else if (sp.has('pad')) main_syncpad(opts);
     else                    main_syncdoc(opts);
 }
 

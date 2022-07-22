@@ -19,7 +19,7 @@
     "codemirror": "^5.48.2",
     "cuid": "^2.1.8",
     "duplexify": "^4.1.1",
-    "firepad-core": "^1.5.17",
+    "firepad-core": "^1.5.18",
     "glob-all": "^3.2.1",
     "hypercore": "^9.12.0",
     "lodash": "^4.17.20",
@@ -42,7 +42,7 @@
   },
   "chromium-args": "--disable-background-timer-throttling",
   "scripts": {
-    "build": "kremlin --prod index.html pad.html",
+    "build": "kremlin --prod index.html",
     "build:cli": "kremlin -o build/cli --node hyper.js",
     "dist": "npm run -s build && mkdir -p public && cp -r img build/kremlin/{index.html,*.css,include.js,bundle.js} public/"
   },
