@@ -65,13 +65,19 @@ function parseParams(sp = new URLSearchParams(window.location.search)) {
 }
 
 function main_syncdoc(opts = parseParams()) {
-    var fcsd = opts.persist ? new FeedCrowdStorageDirectory(opts.persist) : null;
+    var opts = opts.server === 'local' ? LOCAL_OPTIONS : {};
+        //fcsd = opts.persist ? new FeedCrowdStorageDirectory(opts.persist) : null;
 
-    var c1 = new DocumentClient(
-        fcsd ? {storageFactory: fcsd.storageFactory} : {}
-    );
+    var c1 = new DocumentClient(opts);
+        //fcsd ? {storageFactory: fcsd.storageFactory} : {}
 
-    App.start({channel: opts.channel || 'doc2'}).attach(c1);
+    App.start({ui: 'doc', channel: opts.channel || 'doc2'}).attach(c1);
+
+    if (opts.persist) {
+        let dssd = new DocSyncStorageDirectory(path.join(opts.persist, 'docs'));
+        dssd.restore(c1.sync);
+        dssd.autosave(c1.sync);
+    }
 
     const {DirectorySync} = require('./src/addons/fs-sync');
 
@@ -83,9 +89,9 @@ function main_syncdoc(opts = parseParams()) {
 
     window.addEventListener('beforeunload', () => {
         c1.close();
-        window.c1 = window.createDocument = window.fcsd = null;
+        window.c1 = window.createDocument = window = null;
     });
-    Object.assign(window, {c1, fcsd});
+    Object.assign(window, {c1});
 }
 
 function main_syncdoc_headless(opts) {
@@ -105,7 +111,7 @@ function main_syncdoc_headless(opts) {
 async function main_syncpad(opts = parseParams()) {
     var c1 = new DocumentClient();
 
-    var app = App.start({channel: opts.channel || opts.pad || 'pad/lobby'}).attach(c1);
+    var app = App.start({ui: 'pad', channel: opts.channel || opts.pad || 'pad/lobby'}).attach(c1);
 
     await c1.init();
 

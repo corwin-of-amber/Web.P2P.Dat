@@ -7,19 +7,6 @@
         <script src="hyper.js"></script>
     </head>
     <body class="syncpad-ide">
-        <div id="app" class="syncpad-ide">
-            <source-status ref="source" :channel="channel"></source-status>
-            <div id="outline-area">
-                <button-join ref="join" :channel="channel"></button-join>
-                <list-of-peers ref="peers" :title="true"></list-of-peers>
-                <list-of-documents ref="docs"
-                    @created="$event.initiator && $emit('open', $event)"
-                    @select="$emit('open', $event)"></list-of-documents>
-            </div>
-            <div id="editor-area">
-                <syncpad ref="pad"></syncpad>
-            </div>
-        </div>
     </body>
 
     <script>main_syncpad();</script>

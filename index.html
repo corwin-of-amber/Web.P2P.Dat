@@ -7,14 +7,6 @@
         <script src="hyper.js"></script>
     </head>
     <body>
-        <div id="app">
-            <button-join ref="join" :channel="channel"></button-join>
-            <list-of-peers ref="peers" :title="true"></list-of-peers>
-            <documents-raw ref="documents" :editable="ready"
-                @doc:action="$emit('doc:action', $event)"></documents-raw>
-            <list-of-feeds ref="feeds"></list-of-feeds>
-            <preview-pane ref="preview"></document-preview>
-        </div>
     </body>
 
     <script>main();</script>

@@ -1,154 +1,21 @@
-import Vue from 'vue/dist/vue';
-
-import * as bidiText from './bidi-text';
+import Vue from 'vue';
 
 import 'vue-context/dist/css/vue-context.css';
 import './menu.css';
 
-import PlainList from './components/plain-list.vue';
-import PreviewPane from './components/preview-pane.vue';
-import SourceStatus from './components/source/status.vue';
-import ListOfPeers from './components/list-of-peers.vue';
-import ListOfFeeds from './components/list-of-feeds.vue';
-import ButtonJoin from './components/button-join.vue';
-import DocumentsRaw from './components/treedoc/documents-raw.vue';
-import syncpad from './components/syncpad/syncpad.vue';
-import ListOfDocuments from './components/syncpad/list-of-documents.vue';
-
-
-Vue.component('p2p.source-messages', {
-    data: () => ({ messages: [], messagesSorted: [] }),
-    template: `<span/>`,
-    watch: {
-        messages() {
-            var sl = this.messages.concat()
-                         .sort((x,y) => x.timestamp - y.timestamp);
-            this.messagesSorted.splice(0, Infinity, ...sl);
-        }
-    },
-    mounted() {
-        this.$root.$watch('clientState', (state) => {
-            this.unregister(); if (state) this.register(state.client);
-        }, {immediate: true});
-    },
-    methods: {
-        register(client) {
-            var cb = ev => { this.messages.push(ev.data); };
-            client.on('feed:append', cb);
-            this._registered = {client, cb};
-        },
-        unregister() {
-            if (this._registered) {
-                var {client, cb} = this._registered;
-                client.removeListener('feed:append', cb);
-            }
-        }
-    }
-});
-
-Vue.component('p2p.list-of-messages', {
-    data: () => ({ messages: [] }),
-    template: `
-        <div>
-            <p2p.source-messages ref="source"/>
-            <p v-if="messages.length == 0">(Welcome)</p>
-            <plain-list :items="messages" v-slot="{item}">
-                <template v-if="typeof item === 'object'">
-                    <message :message="item" v-if="item.message"/>
-                    <record-object :object="item" v-else/>
-                </template>
-                <template v-else>{{item}}</template>
-            </plain-list>
-        </div>
-    `,
-    mounted() {
-        this.messages = this.$refs.source.messagesSorted;
-    },
-    components: {
-        PlainList,
-        'message': {
-            props: ['message'],
-            template: `
-                <div>
-                    <span class="time" v-if="message.timestamp">{{time}}</span>
-                    <span class="message" :dir="dir">{{message.message}}</span>
-                </div>
-            `,
-            computed: {
-                time() {
-                    let dtf = new Intl.DateTimeFormat('en', {hour12: false, hour: '2-digit', minute: '2-digit'});
-                    return dtf.format(this.message.timestamp);
-                },
-                dir() {
-                    return bidiText.detectTextDir(this.message.message || '');
-                }
-            }
-        }
-    }
-});
-
-
-Vue.component('p2p.message-input-box', {
-    data: () => ({ message: '' }),
-    template: `
-        <form action="#" @submit="send">
-            <input v-model="message">
-            <input type="submit" value="Send">
-        </form>
-    `,
-    computed: {
-        _client() { return this.$root.clientState && 
-                           this.$root.clientState.client; }
-    },
-    methods: {
-        async send(ev) {
-            if (ev) ev.preventDefault();
-
-            if (!this.message.match(/^\s*$/)) {
-                var msg = {timestamp: Date.now(), message: this.message};
-
-                var c = this._client;
-                if (c) {
-                    if (!c.feed) await c.create();
-                    c.feed.append(msg);
-                    c.feed.once('append', () => this.message = '');
-                }
-            }
-        }
-    }
-});
-
-
-const {FileShare} = require('../addons/fs-sync');
-
-Vue.component('p2p.file-object', {
-    data: () => ({ fileshare: undefined }),
-    template: `<span></span>`,
-    mounted() {
-        this.$watch('fileshare', async fileshare => {
-            var client = this.$root.clientState.client;
-            if (client && client.crowd) {
-                this.$el.innerHTML = '';
-                this.$el.append(await fileshare.receive(client.crowd));
-            }
-        })
-    }
-});
+import AppSyncDoc from './components/app-syncdoc.vue';
+import AppSyncPad from './components/app-syncpad.vue';
 
 
 class App {
     constructor(dom, opts={}) {
-        this.vue = new Vue({
-            el: dom,
-            data: {clientState: undefined},
-            props: ['channel'],
+        let AppComponent = {'doc': AppSyncDoc, 'pad': AppSyncPad}[opts.ui];
+        if (!AppComponent) throw new Error(`invalid ui component: '${opts.ui}'`);
+        this.vue = new Vue({...AppComponent, 
             propsData: {channel: opts.channel ?? 'lobby'},
-            computed: {
-                ready() { return this.clientState && this.$refs.join.ready; }
-            },
-            components: { SourceStatus, ButtonJoin, ListOfPeers, ListOfFeeds,
-                DocumentsRaw, ListOfDocuments, PreviewPane, syncpad }
         });
+        this.vue.$mount();
+        dom.append(this.vue.$el);
         this.vue.$on('doc:action', ev => {
             switch (ev.type) {
             case 'select':
@@ -173,7 +40,7 @@ class App {
 }
 
 App.start = function (opts={}) {
-    window.app = new App(opts.root || document.querySelector('#app'), opts);
+    window.app = new App(opts.root || document.body, opts);
     window.addEventListener('beforeunload', () => { window.app = null; });
     return window.app;
 }
