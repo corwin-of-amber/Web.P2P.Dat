@@ -6,33 +6,24 @@
                 <button @click="createText">+</button>
             </div>
         </div>
-        <ul>
-            <li v-for="doc in docs" :key="doc.id"
-                :class="{selected: doc.id === selected}"
-                @click="select(doc)">{{doc.id}}</li>
-        </ul>
+        <file-list ref="list" :files="files" @action="docAction"/>
         <source-documents ref="source" @created="onCreated"/>
+        <context-menu ref="menu" @action="menuAction">
+            <item name="rename">Rename</item>
+        </context-menu>
     </div>
 </template>
 
-<style scoped>
-ul {
-    list-style: none;
-    padding: 0;
-    margin: 2px 0;
-    user-select: none;
-}
-li {
-    padding: 0 4px;
-    cursor: pointer;
+<style>
+div.list-of-documents > .file-list {
     font-size: 11pt;
 }
-li.selected {
-    background: blue;
-    color: white;
-}
+</style>
+
+<style scoped>
 div.list-title {
     display: flex;
+    margin-bottom: 4px;
 }
 div.list-title > span {
     flex-grow: 1;
@@ -44,20 +35,29 @@ div.list-title > span {
 <script>
 import SourceDocuments from '../source/documents.vue';
 import syncpad from '../../../addons/syncpad';
+import FileList from '../../../../packages/file-list/index.vue';
+import ContextMenu from '../../../../packages/context-menu/index.vue';
 
 
 export default {
     props: ['autoselect'],
-    data: () => ({docs: [], selected: null, autoselectMode: this.autoselect ?? true}),
+    data: () => ({docs: [], selected: null, autoselectMode: this.autoselect ?? true,
+                  files: []}),
     mounted() {
         this.docs = this.$refs.source.docs;
+        // `files` must be a data field because `file-list` should be able to modify it
+        this.$watch('docs', (docs) => {
+            this.files = docs.map(doc =>   // order is lost on recompute :(
+                ({name: doc.id, displayName: doc.doc.meta?.name, doc}));
+        });
     },
     computed: {
-        sync() { return this.$refs.source?.sync; }
+        sync() { return this.$refs.source?.sync; },
     },
     methods: {
         select(entry) {
             this.selected = entry.id;
+            this.$refs.list.select([entry.id]);
             this.$emit('select', {...entry, slot: this.syncpadSlot(entry.id)});
         },
         selectId(id) {
@@ -75,14 +75,31 @@ export default {
             var i = 1, id;
             while (this.sync.docs.getDoc(id = `d${i}`)) i++;
             var slot = this.syncpadSlot(id);
-            slot.set(syncpad.FirepadShare.fromText('a ' + id));
+            slot.set(syncpad.FirepadShare.fromText(''));
             this.$emit('created', {initiator: true, id, slot});
             Promise.resolve().then(() => this.selectId(id));
         },
         syncpadSlot(docId) {
             return this.sync.path(docId, ['syncpad']);
+        },
+
+        docAction(ev) {
+            switch (ev.type) {
+                case 'select': this.select(ev.item.doc); break;
+                case 'menu': this.$refs.menu.open(ev.$event, ev); break;
+                case 'rename':
+                    this.$emit('set-meta', {id: ev.item.doc.id, data: {name: ev.to}});
+                    break;
+            }
+        },
+        menuAction(ev) {
+            switch (ev.type) {
+                case 'rename':
+                    this.$refs.list.renameStart(ev.for.path, {set: 'displayName'});
+                    break;
+            }
         }
     },
-    components: { SourceDocuments }
+    components: { SourceDocuments, FileList, ContextMenu, Item: ContextMenu.Item }
 }
 </script>

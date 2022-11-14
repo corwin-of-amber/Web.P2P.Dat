@@ -6,7 +6,8 @@
             <list-of-peers ref="peers" :title="true"></list-of-peers>
             <list-of-documents ref="docs"
                 @created="$event.initiator && $emit('open', $event)"
-                @select="$emit('open', $event)"></list-of-documents>
+                @select="$emit('open', $event)"
+                @set-meta="docSetMeta"></list-of-documents>
         </div>
         <div id="editor-area">
             <syncpad ref="pad"></syncpad>
@@ -27,6 +28,15 @@ export default {
     data: () => ({clientState: undefined}),
     computed: {
         ready() { return this.clientState && this.$refs.join.ready; }
+    },
+    methods: {
+        docSetMeta(ev) {
+            console.log(ev);
+            this.clientState.client.sync.change(ev.id, o => {
+                o.meta ??= {};
+                for (let [k, v] of Object.entries(ev.data)) o.meta[k] = v;
+            });
+        }
     },
     components: { SourceStatus, ButtonJoin, ListOfPeers,
                   ListOfDocuments, syncpad }
