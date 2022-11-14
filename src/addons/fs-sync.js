@@ -1,8 +1,6 @@
-const node_require = global.require || (() => {}), /* bypass browserify */
-
-      fs = node_require('fs'), path = require('path'),
-      globAll = node_require('glob-all');
-
+import fs from 'fs';
+import path from 'path';
+import globAll from 'glob-all';
 
 
 /**
@@ -286,4 +284,4 @@ function stream_pipeline(...streams) {
 
 
 
-module.exports = {DirectorySync, FileSync, FileShare};
+export { DirectorySync, FileSync, FileShare }
