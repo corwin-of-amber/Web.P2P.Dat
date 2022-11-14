@@ -19,7 +19,7 @@ import { FeedCrowd } from './crowd';
 
 /* Node compatibility layer: websockets and webrtc */
 const node_require = require, /* bypass browserify */
-      node_ws = (typeof WebSocket === 'undefined') ? node_require('websocket').w3cwebsocket : undefined,
+      node_ws = (typeof WebSocket === 'undefined') ? node_require('ws').WebSocket : undefined,
       wrtc = (typeof RTCPeerConnection === 'undefined') ? node_require('@koush/wrtc') : undefined;
 
 
@@ -40,13 +40,16 @@ const DEFAULT_OPTIONS = {
     };
 
 /* Use these options for connecting via a host-local webrtc-hub */
+/* (notice that Chrome and Firefox preclude incoming connections on loopback interface,
+ *  which means another network address must be available.) */
 const LOCAL_OPTIONS = {
-        servers:{
+        servers: {
             hub: 'ws://localhost:3300',
             ice: [
                 {urls: ['turn:localhost:3478'],
                  username: 'power',
-                 credential: 'to-the-people'}
+                 credential: 'to-the-people',
+                 override: true}
             ]
     }};
 
@@ -64,6 +67,9 @@ class SwarmClient extends EventEmitter {
         this.activeChannels = new ObservableSet();
 
         this.opened = false;
+
+        if (opts.servers?.ice && opts.servers.ice.some(v => v.override))
+            this.opts.servers.ice = opts.servers.ice;
     }
 
     init() {
