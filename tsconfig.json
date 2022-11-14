@@ -7,6 +7,8 @@
     "esModuleInterop": true,
     "downlevelIteration": true,
     "experimentalDecorators": true,
-    "allowJs": true
-  }
+    "allowJs": true,
+    "outDir": "lib"
+  },
+  "exclude": ["subsidiaries", "dist", "build"]
 }
