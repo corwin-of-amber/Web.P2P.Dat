@@ -4,7 +4,7 @@
             <span>Peers</span>
         </div>
         <plain-list :items="peers" v-slot="{item}">
-            {{item.id}}
+            <div>{{item.id}}</div>
         </plain-list>
         <source-peers ref="source"/>
     </div>
@@ -12,12 +12,15 @@
 
 <style>
 div.list-of-peers ul {
-    padding-inline-start: 1.5em;
+    padding-inline-start: 1.2em;
     margin-top: 3px;
 }
 div.list-of-peers li {
-    text-overflow: ellipsis;
     font-size: 9pt;
+}
+div.list-of-peers li > div {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 div.list-title {
     margin-top: 1em;
